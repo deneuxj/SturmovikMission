@@ -42,26 +42,16 @@
     <StartWorkingDirectory>C:\Users\johann\Documents\Visual Studio 2013\Projects\sturmovikmission\SturmovikMission\</StartWorkingDirectory>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="Microsoft.CSharp" />
     <Reference Include="mscorlib" />
     <Reference Include="NLog">
       <HintPath>..\packages\NLog.4.5.0\lib\net45\NLog.dll</HintPath>
     </Reference>
     <Reference Include="System" />
-    <Reference Include="System.Configuration" />
     <Reference Include="System.Core" />
-    <Reference Include="System.Data" />
-    <Reference Include="System.IO.Compression" />
-    <Reference Include="System.Numerics" />
-    <Reference Include="System.Runtime.Serialization" />
-    <Reference Include="System.ServiceModel" />
-    <Reference Include="System.Transactions" />
-    <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="ProvidedTypes.fsi" />
     <Compile Include="ProvidedTypes.fs" />
-    <Compile Include="DebugProvidedTypes.fs" />
     <Compile Include="Cached.fs" />
     <Compile Include="FileWithTime.fs" />
     <Compile Include="Ast.fs" />
@@ -84,6 +74,10 @@
     <None Include="Scripts\load-references-debug.fsx" />
     <None Include="Scripts\load-project-debug.fsx" />
     <None Include="Script1.fsx" />
+    <Compile Include="ProvidedTypesTesting.fs" />
+    <Compile Include="AssemblyReader.fs" />
+    <Compile Include="AssemblyReaderReflection.fs" />
+    <Compile Include="ProvidedTypesContext.fs" />
   </ItemGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
