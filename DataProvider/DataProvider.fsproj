@@ -9,10 +9,11 @@
     <OutputType>Library</OutputType>
     <RootNamespace>DataProvider</RootNamespace>
     <AssemblyName>DataProvider</AssemblyName>
-    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.6.2</TargetFrameworkVersion>
     <TargetFSharpCoreVersion>4.3.1.0</TargetFSharpCoreVersion>
     <Name>DataProvider</Name>
     <NuGetPackageImportStamp>839e5bcb</NuGetPackageImportStamp>
+    <TargetFrameworkProfile />
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -60,16 +61,9 @@
   <ItemGroup>
     <Compile Include="ProvidedTypes.fsi" />
     <Compile Include="ProvidedTypes.fs" />
-    <Compile Include="Cached.fs" />
     <Compile Include="Logging.fs" />
     <Compile Include="FileWithTime.fs" />
-    <Compile Include="Ast.fs" />
-    <Compile Include="Mcu.fs" />
-    <Compile Include="McuUtil.fs" />
-    <Compile Include="McuOutput.fs" />
     <Compile Include="McuFactory.fs" />
-    <Compile Include="NumericalIdentifiers.fs" />
-    <Compile Include="Localization.fs" />
     <Compile Include="Unification.fs" />
     <Compile Include="Parsing.fs" />
     <Compile Include="AutoSchema.fs" />
@@ -87,6 +81,13 @@
     <Compile Include="AssemblyReader.fs" />
     <Compile Include="AssemblyReaderReflection.fs" />
     <Compile Include="ProvidedTypesContext.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\McuLibrary\McuLibrary.fsproj">
+      <Name>McuLibrary</Name>
+      <Project>{d29be120-c7f0-44d3-9754-c3b407b6f9e9}</Project>
+      <Private>True</Private>
+    </ProjectReference>
   </ItemGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
