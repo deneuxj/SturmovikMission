@@ -274,9 +274,6 @@ with
             |> fun xs -> <@ Composite %xs @>
 
 
-// Fields not dumped. Hack made necessary for version 3.001 of the game because the mission resaver has not been updated.
-let private fieldFilter = ["EmergencyOrdnanceDrop"; "NoTaxiTakeoff"]
-
 let rec dump (value : Value) : string =
     match value with
     | Boolean b -> if b then "1" else "0"
@@ -300,8 +297,7 @@ let rec dump (value : Value) : string =
                 | Composite _ ->
                     yield sprintf "%s\n%s" k (dump v)
                 | _ ->
-                    if not (List.exists ((=) k) fieldFilter) then
-                        yield sprintf "%s = %s;\n" k (dump v)
+                    yield sprintf "%s = %s;\n" k (dump v)
             yield "}\n"
         }
         |> String.concat ""
