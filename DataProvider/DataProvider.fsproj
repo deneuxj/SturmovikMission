@@ -42,6 +42,9 @@
     <StartWorkingDirectory>C:\Users\johann\Documents\Visual Studio 2013\Projects\sturmovikmission\SturmovikMission\</StartWorkingDirectory>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="FSharp.Core">
+      <HintPath>..\packages\FSharp.Core.4.3.4\lib\net45\FSharp.Core.dll</HintPath>
+    </Reference>
     <Reference Include="Microsoft.CSharp" />
     <Reference Include="mscorlib" />
     <Reference Include="NLog">
