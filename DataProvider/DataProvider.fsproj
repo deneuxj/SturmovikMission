@@ -47,9 +47,6 @@
     </Reference>
     <Reference Include="Microsoft.CSharp" />
     <Reference Include="mscorlib" />
-    <Reference Include="NLog">
-      <HintPath>..\packages\NLog.4.5.11\lib\net45\NLog.dll</HintPath>
-    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Configuration" />
     <Reference Include="System.Core" />
@@ -64,6 +61,7 @@
     <Compile Include="ProvidedTypes.fsi" />
     <Compile Include="ProvidedTypes.fs" />
     <Compile Include="Cached.fs" />
+    <Compile Include="Logging.fs" />
     <Compile Include="FileWithTime.fs" />
     <Compile Include="Ast.fs" />
     <Compile Include="Mcu.fs" />
