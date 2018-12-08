@@ -27,7 +27,6 @@ open System.Collections.Generic
 open System
 open System.IO
 open SturmovikMission.DataProvider.Cached
-open SturmovikMission.DataProvider.FileWithTime
 
 
 type IProvidedDataBuilder =
@@ -158,18 +157,6 @@ let mkProvidedDataBuilder (invokeImpl : InvokeCodeImplementation) =
 let inline addXmlDoc< ^T when ^T: (member AddXmlDoc : string -> unit)> (doc : string) (thing : ^T) : ^T =
     ( ^T : (member AddXmlDoc : string -> unit) (thing, doc))
     thing
-
-/// <summary>
-/// Get some name suitable for the type of a field (in a composite) of type composite, set or mapping, or None for other fields.
-/// </summary>
-/// <param name="fieldName">Name of the field.</param>
-/// <param name="def">ValueType of the field.</param>
-let private getNameOfField(fieldName : string, def) =
-    match def with
-    | Ast.ValueType.List _
-    | Ast.ValueType.Mapping _
-    | Ast.ValueType.Composite _ -> Some fieldName
-    | _ -> None
 
 /// <summary>
 /// Type of keys using in caching provided type definitions.
