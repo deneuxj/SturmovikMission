@@ -1,0 +1,36 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2012/06/nuspec.xsd">
+  <metadata>
+    <id>SturmovikMission.DataProvider</id>
+    <version>5.0.0</version>
+    <title>IL-2:BOS mission parser</title>
+    <authors>johann deneux</authors>
+    <owners>johann deneux</owners>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <licenseUrl>https://www.gnu.org/licenses/lgpl-3.0.en.html</licenseUrl>
+    <projectUrl>https://bitbucket.org/johdex/sturmovikmission/overview</projectUrl>
+    <description>A parser and an F# type provider for mission files used in the game IL-2 Sturmovik: Battle Of Stalingrad by 1CGS/777</description>
+    <summary></summary>
+    <language>en-GB</language>
+    <dependencies>
+      <group targetFramework=".NETFramework4.5">
+        <dependency id="FSharp.Core" version="4.3.4" />
+      </group>
+    </dependencies>
+  </metadata>
+  <files>
+    <file src="data\Sample.Mission" target="content\Sample.Mission" />
+    <file src="DataProvider\bin\Release\DataProvider.dll" target="lib\net45\DataProvider.dll" />
+    <file src="DataProvider\bin\Release\DataProvider.pdb" target="lib\net45\DataProvider.pdb" />
+    <file src="DataProvider\bin\Release\DataProvider.XML" target="lib\net45\DataProvider.XML" />
+    <file src="DataProvider\bin\Release\McuLibrary.dll" target="lib\net45\McuLibrary.dll" />
+    <file src="DataProvider\*.fs" target="src\DataProvider" />
+    <file src="DataProvider\*.fsproj" target="src\DataProvider" />
+    <file src="DataProvider\*.fsi" target="src\DataProvider" />
+    <file src="McuLibrary\*.fs" target="src\McuLibrary" />
+    <file src="McuLibrary\*.fsproj" target="src\McuLibrary" />
+    <file src="COPYING.LESSER.txt" target="COPYING.LESSER.txt" />
+    <file src="COPYING.txt" target="COPYING.txt" />
+    <file src="README.md" target="README.md" />
+  </files>
+</package>
