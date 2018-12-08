@@ -726,7 +726,7 @@ let buildGroupParserType (pdb : IProvidedDataBuilder) (namedValueTypes : (string
 /// </summary>
 /// <param name="namedValueTypes">ValueTypes with their names and provided type definitions.</param>
 /// <param name="files">Semi-colon-separated list of mission file names.</param>
-let buildLibraries (pdb : IProvidedDataBuilder) (namedValueTypes : (string * Ast.ValueType * ProvidedTypeDefinition) list) (files : string[]) =
+let buildLibraries logInfo (pdb : IProvidedDataBuilder) (namedValueTypes : (string * Ast.ValueType * ProvidedTypeDefinition) list) (files : string[]) =
     let parsers =
         namedValueTypes
         |> List.map (fun (name, typ, _) -> (name, Parsing.makeParser typ))
@@ -738,9 +738,13 @@ let buildLibraries (pdb : IProvidedDataBuilder) (namedValueTypes : (string * Ast
         fun () ->
             let data =
                 try
+                    logInfo <| sprintf "Started to parse %s" filename
                     let s = Parsing.Stream.FromFile filename
-                    Parsing.parseFile getParser s
-                    |> Choice1Of2
+                    let res =
+                        Parsing.parseFile getParser s
+                        |> Choice1Of2
+                    logInfo <| sprintf "Done parsing %s" filename
+                    res
                 with
                 | :? Parsing.ParseError as e ->
                     Parsing.printParseError e
@@ -893,7 +897,7 @@ type MissionTypes(config: TypeProviderConfig) as this =
         let parserType = buildGroupParserType pdb namedTypes topComplexTypes
         ty.AddMember(parserType)
         // The libraries
-        let plibs = buildLibraries pdb namedTypes libs
+        let plibs = buildLibraries logInfo pdb namedTypes libs
         ty.AddMembers(plibs)
         // Resolution folder
         let resFolder = pdb.NewStaticProperty("ResolutionFolder", typeof<string>, Expr.Value(config.ResolutionFolder))
@@ -945,6 +949,7 @@ type MissionTypes(config: TypeProviderConfig) as this =
             cache.Remove((typeName, sample, libs, invokeCodeImpl)) |> ignore
             this.Invalidate()
             let ty, _ = getProvider(typeName, sample, libs, invokeCodeImpl)
+            logInfo("New provider built")
             // Invalidate the type provider whenever the sample file or one of the library files is modified
             if config.IsInvalidationSupported then
                 watchFile sample this.Invalidate
@@ -957,6 +962,14 @@ type MissionTypes(config: TypeProviderConfig) as this =
     )
 
     do this.AddNamespace(ns, [provider])
+
+    member this.Dispose() =
+        logInfo "Closing log"
+        Logging.closeLog logger
+
+    interface System.IDisposable with
+        member this.Dispose() = this.Dispose()
+
 
 [<assembly:TypeProviderAssembly>]
 do
