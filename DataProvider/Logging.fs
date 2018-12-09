@@ -24,8 +24,12 @@ let initLogging() =
 
 let openLogFile() =
     let now = DateTime.UtcNow
-    let filename = sprintf "log-%s-%s" (now.ToShortDateString()) (now.ToShortTimeString())
-    let path = Path.Combine(getLogDir(), filename)
+    let filename = sprintf "log-%02d%02d%04d-%02d%02d%02d" now.Day now.Month now.Year now.Hour now.Minute now.Second
+    let path =
+        let random = System.Random()
+        Seq.initInfinite (fun _ -> sprintf "%s-%d" filename (random.Next()))
+        |> Seq.map (fun filename -> Path.Combine(getLogDir(), filename))
+        |> Seq.find (File.Exists >> not)
     try
         File.OpenWrite(path)
         |> Ok
