@@ -19,7 +19,7 @@ namespace SturmovikMission.McuLibrary
 
 module Constants =
     [<Literal>]
-    let version = "1.0.0.0"
+    let version = "1.1.0.0"
 
 open System.Reflection
 open System.Resources;

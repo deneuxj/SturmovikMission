@@ -7,6 +7,8 @@
     <Description>Mirrors nodes in missions for the IL-2: Great Battles game</Description>
     <Copyright>Copyright 2018 Johann Deneux</Copyright>
     <PackageProjectUrl>https://github.com/deneuxj/SturmovikMission</PackageProjectUrl>
+    <Version>1.1.0.0</Version>
+    <PackageReleaseNotes>Added values of a few attack/cover icons (tank columns, artillery, balloons)</PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>
