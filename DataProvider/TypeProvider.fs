@@ -890,7 +890,7 @@ type MissionTypes(config: TypeProviderConfig) as this =
             else
                 (fun _ -> ()), (fun () -> ())
 
-        logInfo(sprintf "Provider invoked with sample '%s' and libs %s" sample (libs |> Seq.map (sprintf "'%s'") |> String.concat ", "))
+        logInfo(sprintf "Provider invoked with sample '%s' and libs %s using invokeCodeImpl '%s'" sample (libs |> Seq.map (sprintf "'%s'") |> String.concat ", ") (string InvokeCodeImplementation))
 
         let pdb = mkProvidedDataBuilder invokeImpl
         let ty = new ProvidedTypeDefinition(asm, ns, typeName, Some(typeof<obj>))
