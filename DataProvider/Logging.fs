@@ -48,7 +48,7 @@ let log (out : Result<StreamWriter, _>) (msg : string) =
     | Ok out ->
         try
             let now = DateTime.UtcNow
-            out.WriteLine(sprintf "%s: %s" (now.ToShortTimeString()) msg)
+            out.WriteLine(sprintf "%02d:%02d:%02d.%03d: %s" now.Hour now.Minute now.Second now.Millisecond msg)
             out.Flush()
             out.BaseStream.Flush()
         with
