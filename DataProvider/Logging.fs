@@ -46,13 +46,19 @@ let log (out : Result<StreamWriter, _>) (msg : string) =
     match out with
     | Error _ -> ()
     | Ok out ->
-        let now = DateTime.UtcNow
-        out.WriteLine(sprintf "%s: %s" (now.ToShortTimeString()) msg)
-        out.Flush()
-        out.BaseStream.Flush()
+        try
+            let now = DateTime.UtcNow
+            out.WriteLine(sprintf "%s: %s" (now.ToShortTimeString()) msg)
+            out.Flush()
+            out.BaseStream.Flush()
+        with
+        | _ -> ()
 
 let closeLog (out : Result<StreamWriter, _>) =
     match out with
     | Error _ -> ()
     | Ok out ->
-        out.Close()
+        try
+            out.Close()
+        with
+        | _ -> ()
