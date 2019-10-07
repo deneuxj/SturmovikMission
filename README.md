@@ -17,13 +17,13 @@ All the interesting code is in project DataProvider, whose files can be grouped 
 
 * Type provider on top of the parsing modules: TypeProvider.fs
 
-* Utilities to facilitate manipulation of parsed data: Mcu.fs, McuFactory.fs, NumericalIdentifiers.fs
+* Utilities in project McuLibrary to facilitate manipulation of parsed data: Mcu.fs, McuFactory.fs, NumericalIdentifiers.fs
 
 In the list above, layers mentioned early are used by layers mentioned later
 
 ## How do I get set up? ##
 
-Build with Visual Studio 2015. Dependencies managed with nuget (FSharp.TypeProviders.StarterPack).
+Build with Visual Studio 2017. Dependencies managed with nuget (FSharp.TypeProviders.StarterPack).
 
 ## How do I use this to build missions? ##
 
@@ -59,8 +59,12 @@ The type provider accepts two string arguments: the path to a sample mission fil
 The first argument can be a relative path, in which case it will be relative to the resolution folder, i.e. the folder containing your project or script.
 
 ```fsharp
-type T = Provider< @"C:\Users\...\Sample.Mission", @"C:\Users\...\m2.Mission" >
+open SturmovikMissionTypes
+
+type T = Provider< @"...\Sample.Mission", @"...\m2.Mission" >
 ```
+
+The paths are interpreted relatively to the source file.
 
 At this point, T.Parser is a type that can be used to parse bits of mission files and strings. For instance, the code below creates an airfield tower as an instance of T.Block.
 
