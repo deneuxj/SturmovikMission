@@ -260,95 +260,96 @@ let mkProvidedTypeBuilder logInfo (pdb : IProvidedDataBuilder) (top : ProvidedTy
         logInfo <| sprintf "Started building provided type for %s" typId.Name
         try
             let name = typId.Name
-            match typId.Kind with
-            | Ast.ValueType.Boolean -> ptypBoolean
-            | Ast.ValueType.Float -> ptypFloat
-            | Ast.ValueType.FloatPair -> ptypFloatPair
-            | Ast.ValueType.Integer -> ptypInteger
-            | Ast.ValueType.String -> ptypString
-            | Ast.ValueType.IntVector -> ptypIntVector
-            | Ast.ValueType.Date -> ptypDate
-            | Ast.ValueType.Pair (typ1, typ2) -> buildPair(typId, typ1, typ2)
-            | Ast.ValueType.Triplet (typ1, typ2, typ3) -> buildTriple(typId, typ1, typ2, typ3)
-            | Ast.ValueType.Composite fields ->
-                let typExpr = typId.Kind.ToExpr()
-                let ptyp =
-                    new ProvidedTypeDefinition(name, Some (typeof<Ast.Value>))
-                let parents = name :: typId.Parents
-                // Add types of complex fields as nested types
-                for field in fields do
-                    let fieldName = field.Key
-                    let fieldKind, _, _ = field.Value
-                    let subpTyp = getProvidedType { Name = fieldName; Kind = fieldKind; Parents = parents }
-                    addComplexNestedType(ptyp, subpTyp, fieldKind)
-                // Constructor
-                ptyp.AddMemberDelayed(fun() -> construct parents (fields, ptyp))
-                // Getters
-                ptyp.AddMembersDelayed(fun() -> getters parents fields)
-                // Setters
-                ptyp.AddMembersDelayed(fun() -> setters parents (fields, ptyp))
-                // Create as MCU
-                ptyp.AddMembersDelayed(fun() -> asMcu (name, typId.Kind, typExpr))
-                // Dump to text
-                let meth = pdb.NewMethod("AsString", typeof<string>, [], fun [this] ->
-                    <@@
-                        name + Ast.dump (%%this : Ast.Value)
-                    @@>)
-                ptyp.AddMember(meth)
-                // Result
-                ptyp
-            | Ast.ValueType.Mapping itemTyp ->
-                let subName = sprintf "%s_ValueType" name
-                let ptyp1 = getProvidedType { Name = subName; Kind = itemTyp; Parents = name :: typId.Parents }
-                let ptyp =
-                    new ProvidedTypeDefinition(name, Some (typeof<Ast.Value>))
-                addComplexNestedType(ptyp, ptyp1, itemTyp)
-                // Default constructor
-                ptyp.AddMember(pdb.NewConstructor([], fun [] -> <@@ Ast.Value.Mapping [] @@>))
-                // Constructor from map
-                ptyp.AddMember(pdb.NewConstructor([("map", typedefof<Map<_, _>>.MakeGenericType(typeof<int>, ptyp1))], fun [m] ->
-                    <@@
-                        let m = (%%m : Map<int, Ast.Value>)
-                        Ast.Value.Mapping(Map.toList m)
-                    @@>))
-                // Value getter
-                let propTyp = typedefof<Map<_,_>>.MakeGenericType(typeof<int>, ptyp1)
-                ptyp.AddMember(pdb.NewProperty("Value", propTyp, fun this -> <@@ (%%this : Ast.Value).GetMapping() |> Map.ofList @@>))
-                // Set item in the map
-                ptyp.AddMember(pdb.NewMethod("SetItem", ptyp, [("Key", typeof<int>); ("Value", upcast ptyp1)], fun [this; key; value] ->
-                    <@@
-                        let this = (%%this : Ast.Value)
-                        this.SetItem((%%key : int), (%%value : Ast.Value))
-                    @@>))
-                // Remove item from the map
-                ptyp.AddMember(pdb.NewMethod("RemoveItem", ptyp, ["Key", typeof<int>], fun [this; key] ->
-                    <@@
-                        let this = (%%this : Ast.Value)
-                        this.RemoveItem(%%key : int)
-                    @@>))
-                // Clear map
-                ptyp.AddMember(pdb.NewMethod("Clear", ptyp, [], fun [this] ->
-                    <@@
-                        let this = (%%this : Ast.Value)
-                        this.Clear()
-                    @@>))
-                // Result
-                ptyp
-            | Ast.ValueType.List itemTyp ->
-                let subName = sprintf "%s_ValueType" name
-                let ptyp1 = getProvidedType { Name = subName; Kind = itemTyp; Parents = name :: typId.Parents }
-                let ptyp =
-                    new ProvidedTypeDefinition(name, Some (typeof<Ast.Value>))
-                addComplexNestedType(ptyp, ptyp1, itemTyp)
-                // Default constructor
-                ptyp.AddMember(pdb.NewConstructor([], fun [] -> <@@ Ast.Value.List [] @@>))
-                // Value getter
-                let propTyp = typedefof<_ list>.MakeGenericType(ptyp1)
-                ptyp.AddMember(pdb.NewProperty("Value", propTyp, fun this -> <@@ (%%this : Ast.Value).GetList() @@>))
-                // constructor with value
-                ptyp.AddMember(pdb.NewConstructor(["items", propTyp], fun [items] -> <@@ Ast.Value.List (%%items : Ast.Value list)@@>))
-                // Result
-                ptyp
+            let ptyp =
+                match typId.Kind with
+                | Ast.ValueType.Boolean -> ptypBoolean
+                | Ast.ValueType.Float -> ptypFloat
+                | Ast.ValueType.FloatPair -> ptypFloatPair
+                | Ast.ValueType.Integer -> ptypInteger
+                | Ast.ValueType.String -> ptypString
+                | Ast.ValueType.IntVector -> ptypIntVector
+                | Ast.ValueType.Date -> ptypDate
+                | Ast.ValueType.Pair (typ1, typ2) -> buildPair(typId, typ1, typ2)
+                | Ast.ValueType.Triplet (typ1, typ2, typ3) -> buildTriple(typId, typ1, typ2, typ3)
+                | Ast.ValueType.Composite fields ->
+                    let typExpr = typId.Kind.ToExpr()
+                    let ptyp =
+                        new ProvidedTypeDefinition(name, Some (typeof<Ast.Value>))
+                    let parents = name :: typId.Parents
+                    // Add types of complex fields as nested types
+                    for field in fields do
+                        let fieldName = field.Key
+                        let fieldKind, _, _ = field.Value
+                        let subpTyp = getProvidedType { Name = fieldName; Kind = fieldKind; Parents = parents }
+                        addComplexNestedType(ptyp, subpTyp, fieldKind)
+                    // Constructor
+                    ptyp.AddMemberDelayed(fun() -> construct parents (fields, ptyp))
+                    // Getters
+                    ptyp.AddMembersDelayed(fun() -> getters parents fields)
+                    // Setters
+                    ptyp.AddMembersDelayed(fun() -> setters parents (fields, ptyp))
+                    // Create as MCU
+                    ptyp.AddMembersDelayed(fun() -> asMcu (name, typId.Kind, typExpr))
+                    // Dump to text
+                    let meth = pdb.NewMethod("AsString", typeof<string>, [], fun [this] ->
+                        <@@
+                            name + Ast.dump (%%this : Ast.Value)
+                        @@>)
+                    ptyp.AddMember(meth)
+                    // Result
+                    ptyp
+                | Ast.ValueType.Mapping itemTyp ->
+                    let subName = sprintf "%s_ValueType" name
+                    let ptyp1 = getProvidedType { Name = subName; Kind = itemTyp; Parents = name :: typId.Parents }
+                    let ptyp =
+                        new ProvidedTypeDefinition(name, Some (typeof<Ast.Value>))
+                    addComplexNestedType(ptyp, ptyp1, itemTyp)
+                    // Constructor from map
+                    ptyp.AddMember(pdb.NewConstructor([("map", typedefof<Map<_, _>>.MakeGenericType(typeof<int>, ptyp1))], fun [m] ->
+                        <@@
+                            let m = (%%m : Map<int, Ast.Value>)
+                            Ast.Value.Mapping(Map.toList m)
+                        @@>))
+                    // Value getter
+                    let propTyp = typedefof<Map<_,_>>.MakeGenericType(typeof<int>, ptyp1)
+                    ptyp.AddMember(pdb.NewProperty("Value", propTyp, fun this -> <@@ (%%this : Ast.Value).GetMapping() |> Map.ofList @@>))
+                    // Set item in the map
+                    ptyp.AddMember(pdb.NewMethod("SetItem", ptyp, [("Key", typeof<int>); ("Value", upcast ptyp1)], fun [this; key; value] ->
+                        <@@
+                            let this = (%%this : Ast.Value)
+                            this.SetItem((%%key : int), (%%value : Ast.Value))
+                        @@>))
+                    // Remove item from the map
+                    ptyp.AddMember(pdb.NewMethod("RemoveItem", ptyp, ["Key", typeof<int>], fun [this; key] ->
+                        <@@
+                            let this = (%%this : Ast.Value)
+                            this.RemoveItem(%%key : int)
+                        @@>))
+                    // Clear map
+                    ptyp.AddMember(pdb.NewMethod("Clear", ptyp, [], fun [this] ->
+                        <@@
+                            let this = (%%this : Ast.Value)
+                            this.Clear()
+                        @@>))
+                    // Result
+                    ptyp
+                | Ast.ValueType.List itemTyp ->
+                    let subName = sprintf "%s_ValueType" name
+                    let ptyp1 = getProvidedType { Name = subName; Kind = itemTyp; Parents = name :: typId.Parents }
+                    let ptyp =
+                        new ProvidedTypeDefinition(name, Some (typeof<Ast.Value>))
+                    addComplexNestedType(ptyp, ptyp1, itemTyp)
+                    // Value getter
+                    let propTyp = typedefof<_ list>.MakeGenericType(ptyp1)
+                    ptyp.AddMember(pdb.NewProperty("Value", propTyp, fun this -> <@@ (%%this : Ast.Value).GetList() @@>))
+                    // constructor with value
+                    ptyp.AddMember(pdb.NewConstructor(["items", propTyp], fun [items] -> <@@ Ast.Value.List (%%items : Ast.Value list)@@>))
+                    // Result
+                    ptyp
+            // Add a default constructor
+            let defaultValue = Ast.defaultValue typId.Kind
+            ptyp.AddMember(pdb.NewConstructor([], fun [] -> Expr.Value defaultValue))
+            ptyp
         finally
             logInfo <| sprintf "Done building provided type for %s" typId.Name
 

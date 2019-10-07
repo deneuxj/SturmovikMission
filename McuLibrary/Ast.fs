@@ -241,7 +241,7 @@ with
         | List _ -> List []
         | IntVector _ -> IntVector []
         | _ -> invalidOp "Not a Mapping, Set or IntVector"
-    
+
     member this.ToExpr() =
         match this with
         | Boolean x -> <@ Boolean x @>
@@ -273,6 +273,28 @@ with
             |> List.fold (fun expr (name, value) -> <@ (name, %value.ToExpr()) :: %expr @>) <@ [] @>
             |> fun xs -> <@ Composite %xs @>
 
+let rec defaultValue (typ : ValueType) =
+    match typ with
+    | ValueType.Boolean -> Boolean false
+    | ValueType.Integer -> Integer 0
+    | ValueType.String -> String ""
+    | ValueType.Float -> Float 0.0
+    | ValueType.Composite m ->
+        m
+        |> Map.toList
+        |> List.choose (fun (name, (typ, minMult, maxMult)) ->
+            match minMult, maxMult with
+            | MinOne, MaxOne -> Some (name, defaultValue typ)
+            | Zero, _ -> None
+            | MinOne, Multiple -> Some (name , List [defaultValue typ]))
+        |> Composite
+    | ValueType.Mapping _ -> Mapping []
+    | ValueType.List _ -> List []
+    | ValueType.IntVector _ -> IntVector []
+    | ValueType.Pair (t1, t2) -> Pair(defaultValue t1, defaultValue t2)
+    | ValueType.Triplet (t1, t2, t3) -> Triplet(defaultValue t1, defaultValue t2, defaultValue t3)
+    | ValueType.FloatPair -> FloatPair(0.0, 0.0)
+    | ValueType.Date -> Date(1900, 1, 1)
 
 let rec dump (value : Value) : string =
     match value with
