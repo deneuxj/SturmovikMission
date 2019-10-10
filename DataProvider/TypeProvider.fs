@@ -27,6 +27,7 @@ open System.Collections.Generic
 open System
 open System.IO
 open SturmovikMission.DataProvider.Cached
+open SturmovikMission.DataProvider.UniqueNames
 
 
 type IProvidedDataBuilder =
@@ -581,7 +582,9 @@ let buildParserType logInfo (pdb : IProvidedDataBuilder) (namedValueTypes : (str
             @@>)
         |> addXmlDoc """<summary>Build a new parser.</summary>""")
     // Parse methods for all top types.
+    let unifyNames = UniqueNames()
     for name, valueType, ptyp in namedValueTypes do
+        let name = unifyNames.NewName(name)
         let vtExpr = valueType.ToExpr()
         let retType =
             typedefof<_*_>.MakeGenericType(ptyp, typeof<Parsing.Stream>)
