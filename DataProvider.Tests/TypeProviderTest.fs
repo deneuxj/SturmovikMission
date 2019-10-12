@@ -20,9 +20,11 @@
 module SturmovikMission.DataProvider.McuLibraryTest
 
 open SturmovikMissionTypes
+open Xunit
 
 type T = Provider< @"..\data\Sample.Mission", "" >
 
+[<Fact>]
 let ``vehicles have repair, refuel``() =
     let vehicle =
         T.Vehicle()
