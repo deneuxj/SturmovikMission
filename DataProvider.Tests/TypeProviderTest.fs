@@ -39,3 +39,25 @@ let ``vehicles have repair, refuel``() =
         parser.Parse_Vehicle(Parsing.Stream.FromString repr) |> ignore
         true
     with _ -> false
+
+[<Fact>]
+let ``airfield planes can be constructed``() =
+    try
+        let plane =
+            T.Airfield.Planes()
+        true
+    with _ -> false
+
+[<Fact>]
+let ``wind layer value types can be default-constructed``() =
+    try
+        let windLayer = T.Options.WindLayers.WindLayers_ValueType()
+        true
+    with _ -> false
+
+[<Fact>]
+let ``wind layer value types can be constructed``() =
+    try
+        let windLayer = T.Options.WindLayers.WindLayers_ValueType((T.Integer 0, T.Integer 1, T.Integer 2))
+        true
+    with _ -> false
