@@ -348,8 +348,8 @@ let mkProvidedTypeBuilder logInfo (pdb : IProvidedDataBuilder) (top : ProvidedTy
                     // Result
                     ptyp
             // Add a default constructor
-            let defaultValue = Ast.defaultValue typId.Kind
-            ptyp.AddMember(pdb.NewConstructor([], fun [] -> Expr.Value defaultValue))
+            let defaultValue = Ast.defaultExprValue typId.Kind
+            ptyp.AddMember(pdb.NewConstructor([], fun [] -> defaultValue.Raw))
             ptyp
         finally
             logInfo <| sprintf "Done building provided type for %s" typId.Name
