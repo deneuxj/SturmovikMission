@@ -284,7 +284,9 @@ let mkProvidedTypeBuilder logInfo (pdb : IProvidedDataBuilder) (top : ProvidedTy
                         let subpTyp = getProvidedType { Name = fieldName; Kind = fieldKind; Parents = parents }
                         addComplexNestedType(ptyp, subpTyp, fieldKind)
                     // Constructor
-                    ptyp.AddMemberDelayed(fun() -> construct parents (fields, ptyp))
+                    match construct parents (fields, ptyp) with
+                    | None -> ()
+                    | Some cstr -> ptyp.AddMemberDelayed(fun() -> cstr)
                     // Getters
                     ptyp.AddMembersDelayed(fun() -> getters parents fields)
                     // Setters
@@ -547,7 +549,12 @@ let mkProvidedTypeBuilder logInfo (pdb : IProvidedDataBuilder) (top : ProvidedTy
             <@@
                 Ast.Value.Composite(List.zip %argNames %args)
             @@>
-        pdb.NewConstructor(args, body)
+        match args with
+        | [] ->
+            None
+        | args ->
+            pdb.NewConstructor(args, body)
+            |> Some
 
     and getProvidedType typId : ProvidedTypeDefinition =
         cached cache buildProvidedType typId
