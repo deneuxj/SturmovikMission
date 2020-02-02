@@ -204,14 +204,26 @@ let swapCoalition =
     function
     | CoalitionValue.Allies -> CoalitionValue.Axis
     | CoalitionValue.Axis -> CoalitionValue.Allies
-    | other -> other
+    | CoalitionValue.Entente -> CoalitionValue.CentralPowers
+    | CoalitionValue.CentralPowers -> CoalitionValue.Entente
+    | x -> failwithf "Unknown coalition value %d" (int x)
 
 /// Get the coalition of a country.
 let coalitionOf =
     function
+    | CountryValue.Italy
+    | CountryValue.Japan
     | CountryValue.Germany -> CoalitionValue.Axis
+    | CountryValue.UnitedStates
+    | CountryValue.GreatBritain
     | CountryValue.Russia -> CoalitionValue.Allies
-    | _ -> failwith "Unknown country value"
+    | CountryValue.FranceWWI
+    | CountryValue.GreatBritainWWI
+    | CountryValue.RussiaWWI
+    | CountryValue.UnitedStatesWWI -> CoalitionValue.Entente
+    | CountryValue.GermanyWWI
+    | CountryValue.AustriaHungaryWWI -> CoalitionValue.CentralPowers
+    | x -> failwithf "Unknown country value %d" (int x)
 
 type Mcu.McuProximity with
     /// Set the plane and vehicle coalitions relatively to a given coalition.

@@ -70,6 +70,8 @@ type CoalitionValue =
     | Neutral = 0
     | Allies = 1
     | Axis = 2
+    | Entente = 3
+    | CentralPowers = 4
 
 /// <summary>
 /// Numerical values of line types between connected icons.
@@ -297,7 +299,18 @@ type EventConnection =
 /// </summary>
 type CountryValue =
     | Russia = 101
+    | GreatBritain = 102
+    | UnitedStates = 103
     | Germany = 201
+    | Italy = 202
+    | Japan = 203
+    | FranceWWI = 301
+    | GreatBritainWWI = 302
+    | UnitedStatesWWI = 303
+    | BelgiumWWI = 304
+    | RussiaWWI = 305
+    | GermanyWWI = 401
+    | AustriaHungaryWWI = 402
 
 /// <summary>
 /// Interface of complex triggers.
