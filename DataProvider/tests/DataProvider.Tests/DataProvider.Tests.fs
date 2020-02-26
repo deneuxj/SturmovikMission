@@ -34,14 +34,10 @@ let ``vehicles have repair, refuel``() =
             .SetRefuelFriendlies(T.Boolean true)
             .SetRefuelTime(T.Integer 30)
     let repr = vehicle.AsString()
-    let parser = T.Parser()
-    Assert.Throws<Parsing.ParseError>(fun () ->
-        parser.Parse_Vehicle(Parsing.Stream.FromString repr)
-        |> ignore)
-    |> ignore
-    parser.Parse_Vehicle_1(Parsing.Stream.FromString repr) |> ignore
+    let parser = T.Vehicle.GetParser()
+    parser.Run(Parsing.Stream.FromString repr) |> ignore
     Assert.DoesNotThrow(fun () ->
-        parser.Parse_Vehicle_1(Parsing.Stream.FromString repr)
+        parser.Run(Parsing.Stream.FromString repr)
         |> ignore)
 
 [<Test>]

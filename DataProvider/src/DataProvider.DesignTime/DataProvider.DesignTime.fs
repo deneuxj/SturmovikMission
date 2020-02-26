@@ -293,6 +293,8 @@ module internal Internal =
                         ptyp.AddMembersDelayed(fun() -> setters parents (fields, ptyp))
                         // Create as MCU
                         ptyp.AddMembersDelayed(fun() -> asMcu (name, typId.Kind, typExpr))
+                        // Parse
+                        ptyp.AddMemberDelayed(fun() -> staticParser (typId.Kind, ptyp))
                         // Dump to text
                         let meth = pdb.NewMethod("AsString", typeof<string>, [], fun [this] ->
                             <@@
@@ -556,60 +558,26 @@ module internal Internal =
                 pdb.NewConstructor(args, body)
                 |> Some
 
+        // static method to create a parser
+        and staticParser (valueType : Ast.ValueType, ptyp) =
+            let vtExpr = valueType.ToExpr()
+            let retType = typeof<Parsing.ParserFun>
+
+            pdb.NewStaticMethod("GetParser", retType, [], fun [] ->
+                <@@
+                    Parsing.makeParser %vtExpr
+                @@>)
+            |> addXmlDoc ("""
+            <summary>Create a parser for that type</summary>
+            <return>A <c>Parsing.ParserFun</c> value</return>
+            """)
+
         and getProvidedType typId : ProvidedTypeDefinition =
             cached cache buildProvidedType typId
 
         logInfo "Done inferring all MCU value types"
 
         getProvidedType, cache
-
-    /// <summary>
-    /// Build the definition of the provided type that offers parsing of values.
-    /// </summary>
-    /// <param name="namedValueTypes">List of types, ValueTypes and their provided type definition.</param>
-    let buildParserType logInfo (pdb : IProvidedDataBuilder) (namedValueTypes : (string * Ast.ValueType * ProvidedTypeDefinition) list) =
-        logInfo "Started building the value parser type"
-        let parser =
-            ProvidedTypeDefinition("Parser", Some typeof<IDictionary<Ast.ValueType, Parsing.ParserFun>>)
-            |> addXmlDoc """<summary>Parser for the types found in the sample mission.</summary>"""
-        let valueTypeExprs =
-            namedValueTypes
-            |> List.map (fun (_, x, _) -> x)
-            |> List.fold (fun expr valueType ->
-                let valueTypeExpr = valueType.ToExpr()
-                <@ %valueTypeExpr :: %expr @>
-                ) <@ [] @>
-        // Default constructor: Populate the cache of parsers.
-        parser.AddMember(
-            pdb.NewConstructor([], fun [] ->
-                <@@
-                    %valueTypeExprs
-                    |> List.map(fun valueType -> (valueType, Parsing.makeParser valueType))
-                    |> dict
-                @@>)
-            |> addXmlDoc """<summary>Build a new parser.</summary>""")
-        // Parse methods for all top types.
-        let unifyNames = UniqueNames()
-        for name, valueType, ptyp in namedValueTypes do
-            let name = unifyNames.NewName(name)
-            let vtExpr = valueType.ToExpr()
-            let retType =
-                typedefof<_*_>.MakeGenericType(ptyp, typeof<Parsing.Stream>)
-            parser.AddMember(
-                pdb.NewMethod(sprintf "Parse_%s" name, retType, [("s", typeof<Parsing.Stream>)], fun [this; s] ->
-                    <@@
-                        let parsers = (%%this : IDictionary<Ast.ValueType, Parsing.ParserFun>)
-                        let parser = parsers.[%vtExpr]
-                        parser.Run(%%s : Parsing.Stream)
-                    @@>)
-                |> addXmlDoc (sprintf """
-    <summary>Parse an instance of %s</summary>
-    <param name="s">Stream from which the instance is parsed</param>
-    <return>A pair of the stream after the parsed section and the data resulting from parsing.</return>
-    <exception cref="Parsing.ParseError">Parsing failed.</exception>
-    """ name))
-        logInfo "Done building the value parser type"
-        parser
 
     /// Type controlling the kind of provided property returned by buildAsMcuList: instance-bound or static.
     type DataListSource =
@@ -837,8 +805,6 @@ type MissionTypes(config: TypeProviderConfig) as this =
                 | _ ->
                     Some(typId.Name, typId.Kind, kvp.Value))
             |> List.ofSeq
-        let parserType = Internal.buildParserType logInfo pdb namedTypes
-        ty.AddMember(parserType)
         // The type of the file parser.
         let topComplexTypes =
             cache
