@@ -22,7 +22,7 @@ module SturmovikMission.DataProvider.McuLibraryTest
 open SturmovikMissionTypes
 open NUnit.Framework
 
-type T = Provider< @"..\..\..\data\Sample.Mission", "" >
+type T = Provider< @"..\..\..\data\Sample.Mission">
 
 [<Test>]
 let ``vehicles have repair, refuel``() =

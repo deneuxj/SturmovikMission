@@ -751,98 +751,6 @@ module internal Internal =
         parser
 
     /// <summary>
-    /// Build definitions of provided types which expose the names of nodes in mission files using static properties.
-    /// This useful to use auto-completion and detect typos in node names in an IDE.
-    /// </summary>
-    /// <param name="namedValueTypes">ValueTypes with their names and provided type definitions.</param>
-    /// <param name="files">Semi-colon-separated list of mission file names.</param>
-    let buildLibraries logInfo (pdb : IProvidedDataBuilder) (namedValueTypes : (string * Ast.ValueType * ProvidedTypeDefinition) list) (files : string[]) =
-        let parsers =
-            namedValueTypes
-            |> List.map (fun (name, typ, _) -> (name, Parsing.makeParser typ))
-            |> Map.ofList
-        let getParser name = parsers.[name]
-        let importFile (filename : string) =
-            let name = Path.GetFileNameWithoutExtension(filename)
-            let lib = new ProvidedTypeDefinition(name, Some typeof<obj>)
-            fun () ->
-                let data =
-                    try
-                        logInfo <| sprintf "Started to parse %s" filename
-                        let s = Parsing.Stream.FromFile filename
-                        let res =
-                            Parsing.parseFile getParser s
-                            |> Choice1Of2
-                        logInfo <| sprintf "Done parsing %s" filename
-                        res
-                    with
-                    | :? Parsing.ParseError as e ->
-                        Parsing.printParseError e
-                        |> String.concat "\n"
-                        |> Choice2Of2
-                    | e ->
-                        e.Message
-                        |> Choice2Of2
-                let staticMembers =
-                    match data with
-                    | Choice1Of2 data ->
-                        let rec work (data : Ast.Data) : ((string * Type) * Quotations.Expr * string option) seq =
-                            seq {
-                                match data with
-                                | Ast.Data.Leaf(typename, value) ->
-                                    match value with
-                                    | Ast.Value.Composite fields ->
-                                        let name =
-                                            fields
-                                            |> Seq.tryPick (function ("Name", Ast.Value.String n) -> Some n | _ -> None)
-                                        match name with
-                                        | Some name when name.Length > 0->
-                                            let desc =
-                                                fields
-                                                |> Seq.tryPick (function ("Desc", Ast.Value.String s) -> Some s | _ -> None)
-                                            let valueExpr = <@ name @>
-                                            yield (name, typeof<string>), <@@ %valueExpr @@>, desc
-                                        | _ ->
-                                            ()
-                                    | _ ->
-                                        ()
-                                | Ast.Data.Group groupData ->
-                                    yield!
-                                        groupData.Data
-                                        |> Seq.map work
-                                        |> Seq.concat
-                            }
-                        logInfo <| sprintf "Started building static members for '%s'" filename
-                        try
-                            data
-                            |> List.map work
-                            |> Seq.concat
-                            |> Seq.distinctBy (fun ((name, _), _, _) -> name)
-                            |> List.ofSeq
-                        finally
-                            logInfo "Done building static members"
-                    | Choice2Of2 msg ->
-                    // If something went wrong, the property is a string describing the error that occurred.
-                        [ (("LoadingError", typeof<string>), <@@ msg @@>, Some msg) ]
-                let staticProperties : Reflection.MemberInfo list =
-                    staticMembers
-                    |> List.map (fun (prop, expr, doc) ->
-                        let p = pdb.NewStaticProperty(fst prop, snd prop, expr)
-                        let p =
-                            match doc with
-                            | Some doc -> addXmlDoc (sprintf "<summary>%s</summary>" doc) p
-                            | None -> p
-                        upcast p)
-                staticProperties
-            |> lib.AddMembersDelayed
-            lib
-
-        files
-        |> Array.map importFile
-        |> List.ofArray
-
-
-    /// <summary>
     /// Start a background async that waits for a file to change
     /// </summary>
     /// <param name="path">Path to file to watch</param>
@@ -878,23 +786,15 @@ type MissionTypes(config: TypeProviderConfig) as this =
     <param name="sample">
     Name of a mission file from which the structure of missions is infered.
     </param>
-    <param name="library">
-    List of mission or group files from which to read data, separated by semi-colons.
-    </param>
-    <param name="invokeCodeImpl">
-    Whether to provide complete implementation of all methods. Default behaviour is to infer that from the caller.
-    Use empty implementations for intellisense, use full body during compilation.
-    </param>
     <param name="enableLogging">
     Control whether calls to type provider are logged to files in %LocalAppData%/SturmovikMission.DataProvider.
     False (logging disabled) by default
     </param>
     """)
     let sampleParam = ProvidedStaticParameter("sample", typeof<string>)
-    let libraryParam = ProvidedStaticParameter("library", typeof<string>)
     let enableLoggingParam = ProvidedStaticParameter("enableLogging", typeof<bool>, parameterDefaultValue = false)
 
-    let buildProvider (enableLogging : bool) (typeName : string, sample : string, libs : string[]) =
+    let buildProvider (enableLogging : bool) (typeName : string, sample : string) =
         let logInfo, closeLog =
             if enableLogging then
                 let logger = Logging.initLogging() |> Result.bind Logging.openLogFile
@@ -908,7 +808,7 @@ type MissionTypes(config: TypeProviderConfig) as this =
             else
                 Internal.InvokeCodeImplementation.FromAssembly
 
-        logInfo(sprintf "Provider invoked with sample '%s' and libs %s using invokeCodeImpl '%s'" sample (libs |> Seq.map (sprintf "'%s'") |> String.concat ", ") (string invokeImpl))
+        logInfo(sprintf "Provider invoked with sample '%s' using invokeCodeImpl '%s'" sample (string invokeImpl))
 
         let pdb = Internal.mkProvidedDataBuilder invokeImpl
         let ty = new ProvidedTypeDefinition(asm, ns, typeName, Some(typeof<obj>))
@@ -952,9 +852,6 @@ type MissionTypes(config: TypeProviderConfig) as this =
             |> List.ofSeq
         let parserType = Internal.buildGroupParserType logInfo pdb namedTypes topComplexTypes
         ty.AddMember(parserType)
-        // The libraries
-        let plibs = Internal.buildLibraries logInfo pdb namedTypes libs
-        ty.AddMembers(plibs)
         // Resolution folder
         let resFolder = pdb.NewStaticProperty("ResolutionFolder", typeof<string>, Expr.Value(config.ResolutionFolder))
         resFolder.AddXmlDoc("""
@@ -967,48 +864,40 @@ type MissionTypes(config: TypeProviderConfig) as this =
         let modifs =
             [
                 yield FileWithTime.File.FromFile sample
-                for lib in libs do
-                    yield FileWithTime.File.FromFile lib
             ]
         // Result
         ty, modifs, closeLog
 
     // Cache the top provided type definitions.
-    let cache = new Dictionary<(string * string * string[]), ProvidedTypeDefinition * (FileWithTime.File list) * (unit -> unit) >(HashIdentity.Structural)
+    let cache = new Dictionary<(string * string), ProvidedTypeDefinition * (FileWithTime.File list) * (unit -> unit) >(HashIdentity.Structural)
     let getProvider logInfo = cached cache (buildProvider logInfo)
 
-    do provider.DefineStaticParameters([sampleParam; libraryParam; enableLoggingParam], fun typeName [| sample; libs; enableLogging |] ->
+    do provider.DefineStaticParameters([sampleParam; enableLoggingParam], fun typeName [| sample; enableLogging |] ->
         let resolve (path : string) =
             if Path.IsPathRooted(path) then
                 path
             else
                 Path.Combine(config.ResolutionFolder, path)
         let sample = sample :?> string |> resolve
-        let libs = libs :?> string
-        let libs = libs.Split(';') |> Array.filter(fun lib -> not(System.String.IsNullOrWhiteSpace(lib))) |> Array.map resolve
         let enableLogging = enableLogging :?> bool
 
         if not(System.IO.File.Exists(sample)) then
             failwithf "Cannot open sample file '%s' for reading (runtime assembly is '%s')" sample config.RuntimeAssembly
         // Check if modifications were made to input files
-        let ty, modifs, closeLog = getProvider enableLogging (typeName, sample, libs)
+        let ty, modifs, closeLog = getProvider enableLogging (typeName, sample)
         let modifs2 =
             [
                 yield FileWithTime.File.FromFile sample
-                for lib in libs do
-                    yield FileWithTime.File.FromFile lib
             ]
         // If so, remove the entry from the cache, invalidate the top provided and build it again.
         if modifs <> modifs2 then
             closeLog()
-            cache.Remove((typeName, sample, libs)) |> ignore
+            cache.Remove((typeName, sample)) |> ignore
             this.Invalidate()
-            let ty, _, _ = getProvider enableLogging (typeName, sample, libs)
+            let ty, _, _ = getProvider enableLogging (typeName, sample)
             // Invalidate the type provider whenever the sample file or one of the library files is modified
             if config.IsInvalidationSupported then
                 Internal.watchFile sample this.Invalidate
-                for lib in libs do
-                    Internal.watchFile lib this.Invalidate
             ty
         else
             ty
