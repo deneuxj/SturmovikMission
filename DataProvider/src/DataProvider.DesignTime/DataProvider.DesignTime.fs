@@ -294,7 +294,7 @@ module internal Internal =
                         // Create as MCU
                         ptyp.AddMembersDelayed(fun() -> asMcu (name, typId.Kind, typExpr))
                         // Parse
-                        ptyp.AddMemberDelayed(fun() -> staticParser (typId.Kind, ptyp))
+                        ptyp.AddMemberDelayed(fun() -> staticParser (typId.Kind, name, ptyp))
                         // Dump to text
                         let meth = pdb.NewMethod("AsString", typeof<string>, [], fun [this] ->
                             <@@
@@ -559,13 +559,22 @@ module internal Internal =
                 |> Some
 
         // static method to create a parser
-        and staticParser (valueType : Ast.ValueType, ptyp) =
+        and staticParser (valueType : Ast.ValueType, name, ptyp) =
             let vtExpr = valueType.ToExpr()
             let retType = typeof<Parsing.ParserFun>
 
             pdb.NewStaticMethod("GetParser", retType, [], fun [] ->
+                let name = Expr.Value name
                 <@@
-                    Parsing.makeParser %vtExpr
+                    let bodyParser = Parsing.makeParser %vtExpr
+                    fun (s : Parsing.Stream) ->
+                        let (Parsing.SubString(data, offset)) = s
+                        if data.Substring(offset).StartsWith((%%name : string)) then
+                            let s = Parsing.SubString(data, offset + (%%name : string).Length)
+                            bodyParser.Run s
+                        else
+                            Parsing.parseError(sprintf "Expected '%s'" %%name, s)
+                    |> Parsing.ParserFun
                 @@>)
             |> addXmlDoc ("""
             <summary>Create a parser for that type</summary>
