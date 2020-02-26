@@ -296,7 +296,7 @@ module internal Internal =
                         // Dump to text
                         let meth = pdb.NewMethod("AsString", typeof<string>, [], fun [this] ->
                             <@@
-                                name + Ast.dump (%%this : Ast.Value)
+                                sprintf "%s %s" name (Ast.dump (%%this : Ast.Value))
                             @@>)
                         ptyp.AddMember(meth)
                         // Result
