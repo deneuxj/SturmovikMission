@@ -2,6 +2,7 @@
 ./*.suo
 **/bin/
 **/obj/
+**/paket-files
 devenv*.vspx
 *.userprefs
 .nuget/
