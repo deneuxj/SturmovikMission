@@ -15,7 +15,7 @@
 //    You should have received a copy of the GNU Lesser General Public License
 //    along with SturmovikMission.  If not, see <http://www.gnu.org/licenses/>.
 
-module SturmovikMission.DataProvider.Cached
+module SturmovikMission.Cached
 
 open System.Collections.Generic
 
