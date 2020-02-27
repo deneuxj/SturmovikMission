@@ -11,6 +11,10 @@
     <PackageReleaseNotes>Target .net standard 2.0 and framework 4.5</PackageReleaseNotes>
     <IncludeSource>true</IncludeSource>
     <PackageLicenseExpression>LGPL-3.0-or-later</PackageLicenseExpression>
+    <Version>1.3.0</Version>
+    <PackageId>SturmovikMission.McuLibrary</PackageId>
+    <Product>SturmovikMission.McuLibrary</Product>
+    <Company />
   </PropertyGroup>
 
   <ItemGroup>
@@ -21,7 +25,6 @@
     <Compile Include="McuOutput.fs" />
     <Compile Include="NumericalIdentifiers.fs" />
     <Compile Include="Localization.fs" />
-    <Compile Include="AssemblyInfo.fs" />
   </ItemGroup>
 
   <ItemGroup>
