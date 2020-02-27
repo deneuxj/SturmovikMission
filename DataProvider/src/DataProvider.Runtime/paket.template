@@ -1,31 +1,28 @@
 type file
-id DataProvider
+id SturmovikMission.DataProvider
 authors
-    Steffen Forkmann, Gustavo Guerra, JohnDoeKyrgyz, Don Syme
+    Johann Deneux
 owners
-    Steffen Forkmann, Gustavo Guerra, JohnDoeKyrgyz, Don Syme
+    Johann Deneux
 projectUrl
-    http://github.com/fsprojects/DataProvider
-iconUrl
-    https://raw.githubusercontent.com/fsprojects/DataProvider/master/docs/files/img/logo.png
+    https://github.com/deneuxj/SturmovikMission
 licenseUrl
-    http://github.com/fsprojects/DataProvider/blob/master/LICENSE.txt
+    https://github.com/deneuxj/SturmovikMission/blob/master/COPYING.LESSER.txt
 requireLicenseAcceptance
     false
 tags
-    F# fsharp typeproviders DataProvider
+    F# fsharp typeproviders
 summary
-    This library is for the .NET platform implementing DataProvider.
+    Type provider for IL-2 Sturmovik: Great Battles mission files
 description
-    This library is for the .NET platform implementing DataProvider.
-tags
-    F# fsharp typeproviders DataProvider
+    Type provider for IL-2 Sturmovik: Great Battles mission files
 files
     bin/Release/net45/DataProvider.Runtime.* ==> lib/net45
     bin/Release/netstandard2.0/DataProvider.Runtime.* ==> lib/netstandard2.0
     bin/Release/typeproviders/fsharp41/netstandard2.0/*.dll ==> typeproviders/fsharp41/netstandard2.0
     bin/Release/typeproviders/fsharp41/netcoreapp3.1/*.dll ==> typeproviders/fsharp41/netcoreapp3.1
     bin/Release/typeproviders/fsharp41/net45/*.dll ==> typeproviders/fsharp41/net45
+	bin/Release/netstandard2.0/*.mission ==> content
 references
     DataProvider.Runtime.dll
 dependencies
