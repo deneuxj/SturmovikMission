@@ -7,6 +7,7 @@
     <OutputType>Library</OutputType>
     <TargetFrameworks>netstandard2.0;net45</TargetFrameworks>
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
+    <AssemblyName>SturmovikMission.DataProvider.Runtime</AssemblyName>
   </PropertyGroup>
   <Import Project="Sdk.targets" Sdk="Microsoft.NET.Sdk" />
   <ItemGroup>

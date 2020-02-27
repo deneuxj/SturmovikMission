@@ -747,7 +747,7 @@ module internal Internal =
 [<TypeProvider>]
 /// Entry point of the type provider.
 type MissionTypes(config: TypeProviderConfig) as this =
-    inherit TypeProviderForNamespaces (config, assemblyReplacementMap=[("DataProvider.DesignTime", "DataProvider.Runtime")], addDefaultProbingLocation=true)
+    inherit TypeProviderForNamespaces (config, assemblyReplacementMap=[("SturmovikMission.DataProvider.DesignTime", "SturmovikMission.DataProvider.Runtime")], addDefaultProbingLocation=true)
     
     let asm = System.Reflection.Assembly.GetExecutingAssembly()
     let ns = "SturmovikMissionTypes"

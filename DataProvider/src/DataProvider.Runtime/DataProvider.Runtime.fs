@@ -18,5 +18,5 @@
 namespace SturmovikMission.DataProvider.TypeProvider
 
 // Put the TypeProviderAssemblyAttribute in the runtime DLL, pointing to the design-time DLL
-[<assembly:CompilerServices.TypeProviderAssembly("DataProvider.DesignTime.dll")>]
+[<assembly:CompilerServices.TypeProviderAssembly("SturmovikMission.DataProvider.DesignTime.dll")>]
 do ()
