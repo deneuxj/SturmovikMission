@@ -57,3 +57,14 @@ let ``wind layer value types can be constructed``() =
     Assert.DoesNotThrow(fun () ->
         T.Options.WindLayers.WindLayers_ValueType((T.Integer 0, T.Integer 1, T.Integer 2))
         |> ignore)
+
+[<Test>]
+// When compiling with 6.0.0 exhibits the following compile-time error:
+// The type provider 'SturmovikMission.DataProvider.TypeProvider.MissionTypes' reported an error in the context of provided type 'SturmovikMissionTypes.Provider,sample="..\\..\\..\\data\\Sample.Mission"+GroupData', member 'CreateMcuList'. The error: Type mismatch when building 'expr': the expression has the wrong type. Expected 'Microsoft.FSharp.Collections.FSharpList`1[SturmovikMission.DataProvider.Ast+Data]', but received type 'Microsoft.FSharp.Collections.FSharpList`1[SturmovikMission.DataProvider.Ast+Data]'.Parameter name: receivedType
+let ``GroupData.CreateMcuList does not create a compile-time type mismatch``() =
+    let timer =
+        T.MCU_Timer().SetIndex(T.Integer 1)
+    let data = sprintf "Group {\n  Name = \"G\";\n%s\n }" (timer.AsString())
+    let s = Parsing.Stream.FromString data
+    let groupData = T.GroupData(s)
+    Assert.DoesNotThrow(fun () -> groupData.CreateMcuList() |> ignore)
