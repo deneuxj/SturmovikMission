@@ -310,13 +310,13 @@ module internal Internal =
                             new ProvidedTypeDefinition(name, Some (typeof<Ast.Value>))
                         addComplexNestedType(ptyp, ptyp1, itemTyp)
                         // Constructor from map
-                        ptyp.AddMember(pdb.NewConstructor([("map", typedefof<Map<_, _>>.MakeGenericType(typeof<int>, ptyp1))], fun [m] ->
+                        ptyp.AddMember(pdb.NewConstructor([("map", ProvidedTypeBuilder.MakeGenericType(typedefof<Map<_, _>>, [typeof<int>; ptyp1]))], fun [m] ->
                             <@@
                                 let m = (%%m : Map<int, Ast.Value>)
                                 Ast.Value.Mapping(Map.toList m)
                             @@>))
                         // Value getter
-                        let propTyp = typedefof<Map<_,_>>.MakeGenericType(typeof<int>, ptyp1)
+                        let propTyp = ProvidedTypeBuilder.MakeGenericType(typedefof<Map<_,_>>, [typeof<int>; ptyp1])
                         ptyp.AddMember(pdb.NewProperty("Value", propTyp, fun this -> <@@ (%%this : Ast.Value).GetMapping() |> Map.ofList @@>))
                         // Set item in the map
                         ptyp.AddMember(pdb.NewMethod("SetItem", ptyp, [("Key", typeof<int>); ("Value", upcast ptyp1)], fun [this; key; value] ->
@@ -345,7 +345,7 @@ module internal Internal =
                             new ProvidedTypeDefinition(name, Some (typeof<Ast.Value>))
                         addComplexNestedType(ptyp, ptyp1, itemTyp)
                         // Value getter
-                        let propTyp = typedefof<_ list>.MakeGenericType(ptyp1)
+                        let propTyp = ProvidedTypeBuilder.MakeGenericType(typedefof<_ list>, [ptyp1])
                         ptyp.AddMember(pdb.NewProperty("Value", propTyp, fun this -> <@@ (%%this : Ast.Value).GetList() @@>))
                         // constructor with value
                         ptyp.AddMember(pdb.NewConstructor(["items", propTyp], fun [items] -> <@@ Ast.Value.List (%%items : Ast.Value list)@@>))
@@ -370,7 +370,7 @@ module internal Internal =
             addComplexNestedType(ptyp, ptyp1, typ1)
             addComplexNestedType(ptyp, ptyp2, typ2)
             // Value getter
-            let propTyp = typedefof<_*_>.MakeGenericType(ptyp1, ptyp2)
+            let propTyp = ProvidedTypeBuilder.MakeGenericType(typedefof<_*_>, [ptyp1; ptyp2])
             ptyp.AddMember(pdb.NewProperty("Value", propTyp, fun this -> <@@ (%%this : Ast.Value).GetPair() @@>))
             // Constructor
             ptyp.AddMember(pdb.NewConstructor([("Value", propTyp)], fun [value] -> <@@ Ast.Value.Pair (%%value : Ast.Value * Ast.Value) @@>))
@@ -393,7 +393,7 @@ module internal Internal =
             addComplexNestedType(ptyp, ptyp1, typ1)
             addComplexNestedType(ptyp, ptyp2, typ2)
             addComplexNestedType(ptyp, ptyp3, typ3)
-            let propTyp = typedefof<_*_*_>.MakeGenericType(ptyp1, ptyp2, ptyp3)
+            let propTyp = ProvidedTypeBuilder.MakeTupleType([ptyp1; ptyp2; ptyp3])
             // Value getter
             ptyp.AddMember(pdb.NewProperty("Value", propTyp, fun this -> <@@ (%%this : Ast.Value).GetTriplet() @@>))
             // Constructor
@@ -423,8 +423,9 @@ module internal Internal =
                                 @@>)
                     | Ast.MinMultiplicity.Zero, Ast.MaxOne ->
                         let optTyp =
-                            typedefof<_ option>
-                                .MakeGenericType(fieldType)
+                            ProvidedTypeBuilder.MakeGenericType(
+                                typedefof<_ option>,
+                                [fieldType])
                         pdb.NewMethod(
                             sprintf "TryGet%s" fieldName,
                             optTyp,
@@ -438,8 +439,9 @@ module internal Internal =
                                 @@>)
                     | _, Ast.MaxMultiplicity.Multiple ->
                         let listTyp =
-                            typedefof<_ list>
-                                .MakeGenericType(fieldType)
+                            ProvidedTypeBuilder.MakeGenericType(
+                                typedefof<_ list>,
+                                [fieldType])
                         pdb.NewMethod(
                             sprintf "Get%ss" fieldName,
                             listTyp,
@@ -489,8 +491,9 @@ module internal Internal =
                             @@>)
                 | _, Ast.MaxMultiplicity.Multiple ->
                     let listTyp =
-                        typedefof<_ list>
-                            .MakeGenericType(fieldType)
+                        ProvidedTypeBuilder.MakeGenericType(
+                            typedefof<_ list>,
+                            [fieldType])
                     pdb.NewMethod(
                         sprintf "Set%s" fieldName,
                         ptyp,
@@ -643,8 +646,9 @@ module internal Internal =
     /// <param name="namedValueTypes">ValueTypes with their name and provided type definition.</param>
     let buildGroupParserType logInfo (pdb : IProvidedDataBuilder) (namedValueTypes : (string * Ast.ValueType * ProvidedTypeDefinition) list) (topComplexTypes : (string * Ast.ValueType * ProvidedTypeDefinition) list) =
         logInfo "Started building the group parser type"
+        let dataListType = ProvidedTypeBuilder.MakeGenericType(typedefof<_ list>, [typeof<Ast.Data>])
         let parser =
-            ProvidedTypeDefinition("GroupData", Some typeof<Ast.Data list>)
+            ProvidedTypeDefinition("GroupData", Some dataListType)
             |> addXmlDoc """Extraction of data from a mission or group file."""
         let valueTypeOfName =
             namedValueTypes
@@ -670,7 +674,7 @@ module internal Internal =
                 <exception cref="Parsing.ParseError">Failed to parse the mission or group</exception>""")
         // Constructor: From a list of AST nodes
         parser.AddMemberDelayed(fun () ->
-            pdb.NewConstructor([("nodes", typeof<Ast.Data list>)], fun [nodes] ->
+            pdb.NewConstructor([("nodes", dataListType)], fun [nodes] ->
                 <@@
                     (%%nodes : Ast.Data list)
                 @@>)
@@ -693,7 +697,7 @@ module internal Internal =
         // Getters: list of objects of each type
         for (name, valueType, ptyp) in topComplexTypes do
             parser.AddMemberDelayed(fun() ->
-                pdb.NewProperty(sprintf "ListOf%s" name, typedefof<_ list>.MakeGenericType(ptyp), fun this ->
+                pdb.NewProperty(sprintf "ListOf%s" name, ProvidedTypeBuilder.MakeGenericType(typedefof<_ list>, [ptyp]), fun this ->
                     <@@
                         let this = (%%this : Ast.Data list)
                         let ret =
