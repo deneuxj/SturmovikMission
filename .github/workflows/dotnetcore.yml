@@ -26,3 +26,8 @@ jobs:
       run: |
         cd DataProvider
         dotnet paket pack nuget
+    - name: Create artifact
+      uses: actions/upload-artifact@v1
+      with:
+        name: nuget-package
+        path: DataProvider/nuget/
