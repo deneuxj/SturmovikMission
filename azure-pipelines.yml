@@ -1,0 +1,27 @@
+# Starter pipeline
+# Start with a minimal pipeline that you can customize to build and deploy your code.
+# Add steps that build, run tests, deploy, and more:
+# https://aka.ms/yaml
+
+trigger:
+- master
+
+pool:
+  vmImage: 'windows-2019'
+
+steps:
+- script: |
+    cd DataProvider
+    nuget tool restore
+    dotnet paket update
+  displayName: 'Retrieve paket'
+
+- script: |
+    dotnet build -c release
+    dotnet test -c release
+  displayName: 'Build library'
+
+- script: |
+    cd DataProvider
+    dotnet paket pack nuget
+  displayName: 'Build nuget package'
