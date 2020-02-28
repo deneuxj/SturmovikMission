@@ -5,6 +5,7 @@
 **/paket-files
 devenv*.vspx
 *.userprefs
+*.nupkg
 .nuget/
 packages/
 DataProvider/Scripts/*.fsx
