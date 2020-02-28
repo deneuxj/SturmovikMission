@@ -35,6 +35,7 @@
     <Compile Include="McuFactory.fs" />
     <Compile Include="DataProvider.Runtime.fs" />
     <None Include="paket.references" />
+    <None Include="paket.template" />
   </ItemGroup>
   <ItemGroup>
     <!-- Be explicit about the version of FSharp.Core since we mention it in the manual nuget package spec -->

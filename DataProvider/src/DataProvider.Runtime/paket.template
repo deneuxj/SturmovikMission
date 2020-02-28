@@ -1,5 +1,6 @@
 type file
 id SturmovikMission.DataProvider
+version 6.0.0
 authors
     Johann Deneux
 owners
@@ -17,14 +18,14 @@ summary
 description
     Type provider for IL-2 Sturmovik: Great Battles mission files
 files
-    bin/Release/net45/DataProvider.Runtime.* ==> lib/net45
-    bin/Release/netstandard2.0/DataProvider.Runtime.* ==> lib/netstandard2.0
+    bin/Release/net45/SturmovikMission.DataProvider.Runtime.* ==> lib/net45
+    bin/Release/netstandard2.0/SturmovikMission.DataProvider.Runtime.* ==> lib/netstandard2.0
     bin/Release/typeproviders/fsharp41/netstandard2.0/*.dll ==> typeproviders/fsharp41/netstandard2.0
     bin/Release/typeproviders/fsharp41/netcoreapp3.1/*.dll ==> typeproviders/fsharp41/netcoreapp3.1
     bin/Release/typeproviders/fsharp41/net45/*.dll ==> typeproviders/fsharp41/net45
 	bin/Release/netstandard2.0/*.mission ==> content
 references
-    DataProvider.Runtime.dll
+    SturmovikMission.DataProvider.Runtime.dll
 dependencies
   FSharp.Core >= LOCKEDVERSION
 

@@ -50,7 +50,7 @@ cd DataProvider
 dotnet tool restore
 dotnet paket update
 dotnet build -c release
-dotnet paket pack nuget --version 6.0.0 # Replace 6.0.0 by the proper version number
+dotnet paket pack nuget
 ```
 
 Note that using ``dotnet pack`` here will produce nuget packages that aren't usable. Use the steps above instead.
