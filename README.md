@@ -27,7 +27,33 @@ In the list above, layers mentioned early are used by layers mentioned later
 
 ## How do I get set up? ##
 
-Build with Visual Studio 2019 or ``dotnet build``.
+This is an F# type provider for IL-2 Sturmovik: Great Battles mission files.  It has separate design-time and runtime assemblies.
+
+Once:
+```
+cd DataProvider
+dotnet tool restore
+dotnet paket update
+```
+
+Building:
+
+```
+dotnet build -c release
+dotnet test -c release
+```
+
+Most people won't need to do this, but should you want to produce the nuget package of the type provider:
+
+```
+cd DataProvider
+dotnet tool restore
+dotnet paket update
+dotnet build -c release
+dotnet paket pack nuget --version 6.0.0 # Replace 6.0.0 by the proper version number
+```
+
+Note that using ``dotnet pack`` here will produce nuget packages that aren't usable. Use the steps above instead.
 
 ## How do I use this to build missions? ##
 
