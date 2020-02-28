@@ -25,3 +25,15 @@ steps:
     cd DataProvider
     dotnet paket pack nuget
   displayName: 'Build nuget package'
+
+- task: NuGetAuthenticate@0
+  displayName: 'NuGet Authenticate'
+
+- task: NuGetCommand@2
+  displayName: 'NuGet push'
+  inputs:
+    command: 'push'
+    packagesToPush: '$(Build.ArtifactStagingDirectory)/**/*.nupkg;!$(Build.ArtifactStagingDirectory)/**/*.symbols.nupkg'
+    nuGetFeedType: 'internal'
+    publishVstsFeed: 'fef3289d-1df2-4c53-8876-e7a32de57ec4/098eedf9-7e55-4d0f-9930-888df292e377'
+    allowPackageConflicts: true
