@@ -64,7 +64,7 @@ let ``wind layer value types can be constructed``() =
 let ``GroupData.CreateMcuList does not create a compile-time type mismatch``() =
     let timer =
         T.MCU_Timer().SetIndex(T.Integer 1)
-    let data = sprintf "Group { Name= = \"G\" %s }" (timer.AsString())
+    let data = sprintf "Group {\n  Name = \"G\";\n%s\n }" (timer.AsString())
     let s = Parsing.Stream.FromString data
     let groupData = T.GroupData(s)
     Assert.DoesNotThrow(fun () -> groupData.CreateMcuList() |> ignore)
