@@ -588,17 +588,11 @@ module internal Internal =
 
         getProvidedType, cache
 
-    /// Type controlling the kind of provided property returned by buildAsMcuList: instance-bound or static.
-    type DataListSource =
-        | Instance of this: (Expr -> Expr<Ast.Data list>)
-        | Static of code: Expr<Ast.Data list>
-
     /// <summary>
     /// Build the provided method that builds a list of objects implementing McuBase and its subtypes.
     /// </summary>
-    /// <param name="dataListSource">Specifies where the data is retrieved from: From 'this' for an instance-bound property, from an expression for a static property.</param>
     /// <param name="namedValueTypes">List of ValueTypes with their name and their provided type definition.</param>
-    let buildAsMcuList logInfo (pdb : IProvidedDataBuilder) (dataListSource : DataListSource) (namedValueTypes : (string * Ast.ValueType * ProvidedTypeDefinition) list) =
+    let buildAsMcuList logInfo (pdb : IProvidedDataBuilder) (namedValueTypes : (string * Ast.ValueType * ProvidedTypeDefinition) list) =
         logInfo "Started building the MCU list builder method"
         let valueTypeOfName =
             namedValueTypes
@@ -613,9 +607,10 @@ module internal Internal =
             |> List.fold (fun expr name ->
                 <@ name :: %expr @>) <@ [] @>
 
-        let mkBody (dataList : Expr<Ast.Data list>) =
-            <@@
-                let this = %dataList
+        let method =
+            pdb.NewMethod("CreateMcuList", typeof<Mcu.McuBase list>, [], fun [this] ->
+                <@@
+                let this = (%%this : Ast.Data list)
                 let valueTypeOfName = %valueTypeOfName
                 let mcuMakerOfName =
                     %names
@@ -635,17 +630,8 @@ module internal Internal =
                     | _ -> // Cannot build an Mcu from that valueType
                         None
                 )
-            @@>
-
-        let method =
-            match dataListSource with
-            | Static expr ->
-                pdb.NewStaticMethod("CreateMcuList", typeof<Mcu.McuBase list>, [], fun [] -> mkBody expr)
-            | Instance getDataList ->
-                pdb.NewMethod("CreateMcuList", typeof<Mcu.McuBase list>, [], fun [this] ->
-                    let dataList : Expr<Ast.Data list> = getDataList this
-                    mkBody dataList
-                )
+                @@>
+            )
 
         logInfo "Done building the MCU list builder method"
 
@@ -720,7 +706,7 @@ module internal Internal =
                 |> addXmlDoc (sprintf """<summary>Build a list of immutable instances of %s</summary>""" name))
         // Get the flattened list of objects as instances of McuBase and its subtypes, when appropriate
         parser.AddMemberDelayed(fun() ->
-            buildAsMcuList logInfo pdb (Instance(fun this -> <@ (%%this : Ast.Data list) @>)) namedValueTypes
+            buildAsMcuList logInfo pdb namedValueTypes
             |> addXmlDoc """<summary>Build a list of mutable instances of McuBase from the extracted data.</summary>""")
         // Logging
         logInfo "Done building the group parser type"
