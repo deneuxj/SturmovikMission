@@ -1,0 +1,37 @@
+type file
+id SturmovikMission.DataProvider
+version 6.0.0
+authors
+    Johann Deneux
+owners
+    Johann Deneux
+projectUrl
+    https://github.com/deneuxj/SturmovikMission
+licenseUrl
+    https://github.com/deneuxj/SturmovikMission/blob/master/COPYING.LESSER.txt
+requireLicenseAcceptance
+    false
+tags
+    F# fsharp typeproviders
+summary
+    Type provider for IL-2 Sturmovik: Great Battles mission files
+description
+    Type provider for IL-2 Sturmovik: Great Battles mission files
+files
+    bin/Release/net45/SturmovikMission.DataProvider.Runtime.* ==> lib/net45
+    bin/Release/netstandard2.0/SturmovikMission.DataProvider.Runtime.* ==> lib/netstandard2.0
+    bin/Release/typeproviders/fsharp41/netstandard2.0/*.dll ==> typeproviders/fsharp41/netstandard2.0
+    bin/Release/typeproviders/fsharp41/netcoreapp3.1/*.dll ==> typeproviders/fsharp41/netcoreapp3.1
+    bin/Release/typeproviders/fsharp41/net45/*.dll ==> typeproviders/fsharp41/net45
+	bin/Release/netstandard2.0/*.mission ==> content
+references
+    SturmovikMission.DataProvider.Runtime.dll
+dependencies
+  FSharp.Core >= LOCKEDVERSION
+
+# put any package references here
+#  Some.Package
+#  framework: netcoreapp3.1
+#    System.Text.Encoding.CodePages >= LOCKEDVERSION
+#  framework: netstandard2.0
+#    System.Text.Encoding.CodePages >= LOCKEDVERSION

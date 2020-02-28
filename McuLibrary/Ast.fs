@@ -19,7 +19,7 @@
 module SturmovikMission.DataProvider.Ast
 
 open System.Collections.Generic
-open Cached
+open SturmovikMission.Cached
 
 
 type MinMultiplicity = Zero | MinOne

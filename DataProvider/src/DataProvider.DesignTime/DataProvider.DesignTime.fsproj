@@ -1,0 +1,47 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk">
+  <Import Project="..\..\netfx.props" />
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <TargetFrameworks>netstandard2.0;netcoreapp3.1;net45</TargetFrameworks>
+    <Optimize>true</Optimize>
+    <Tailcalls>true</Tailcalls>
+    <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
+    <RestoreProjectStyle>PackageReference</RestoreProjectStyle>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <AssemblyName>SturmovikMission.DataProvider.DesignTime</AssemblyName>
+    <Version>6.0.0</Version>
+    <Authors>Johann Deneux &lt;johann.deneux@gmail.com&gt;</Authors>
+    <Product>SturmovikMission.DataProvider</Product>
+    <Copyright>Copyright 2018-2020 Johann Deneux</Copyright>
+    <PackageLicenseExpression>LGPL-3.0-or-later</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/deneuxj/SturmovikMission</PackageProjectUrl>
+    <RepositoryUrl>git@github.com:deneuxj/SturmovikMission.git</RepositoryUrl>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="..\..\paket-files\fsprojects\FSharp.TypeProviders.SDK\src\ProvidedTypes.fsi">
+      <Paket>True</Paket>
+      <Link>paket-files/ProvidedTypes.fsi</Link>
+    </Compile>
+    <Compile Include="..\..\paket-files\fsprojects\FSharp.TypeProviders.SDK\src\ProvidedTypes.fs">
+      <Paket>True</Paket>
+      <Link>paket-files/ProvidedTypes.fs</Link>
+    </Compile>
+    <Compile Include="UniqueNames.fs" />
+    <Compile Include="FileWithTime.fs" />
+    <Compile Include="Logging.fs" />
+    <Compile Include="..\DataProvider.Runtime\Unification.fs" Link="Unification.fs" />
+    <Compile Include="..\DataProvider.Runtime\Parsing.fs" Link="Parsing.fs" />
+    <Compile Include="..\DataProvider.Runtime\AutoSchema.fs" Link="AutoSchema.fs" />
+    <Compile Include="..\DataProvider.Runtime\McuFactory.fs" Link="McuFactory.fs" />
+    <Compile Include="DataProvider.DesignTime.fs" />
+    <None Include="paket.references" />
+    <None Include="..\..\packages\NETStandard.Library.NETFramework\build\net461\lib\netstandard.dll" Condition="'$(TargetFramework)' == 'net45'">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\McuLibrary\McuLibrary.fsproj" />
+  </ItemGroup>
+  <Import Project="..\..\.paket\Paket.Restore.targets" />
+</Project>
