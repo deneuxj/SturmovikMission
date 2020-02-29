@@ -739,13 +739,14 @@ module internal Internal =
 type MissionTypes(config: TypeProviderConfig) as this =
     inherit TypeProviderForNamespaces (config, assemblyReplacementMap=[("SturmovikMission.DataProvider.DesignTime", "SturmovikMission.DataProvider.Runtime")], addDefaultProbingLocation=true)
     
-    let asm = System.Reflection.Assembly.GetExecutingAssembly()
+    let asm = System.Reflection.Assembly.LoadFrom(config.RuntimeAssembly)
     let ns = "SturmovikMissionTypes"
 
     // check we contain a copy of runtime files, and are not referencing the runtime DLL
     do assert (typeof<Parsing.Stream>.Assembly.GetName().Name = asm.GetName().Name)  
 
     let buildProvider (enableLogging : bool) (typeName : string, sample : string) =
+        let asm = ProvidedAssembly()
         let logInfo, closeLog =
             if enableLogging then
                 let logger = Logging.initLogging() |> Result.bind Logging.openLogFile
@@ -814,6 +815,28 @@ type MissionTypes(config: TypeProviderConfig) as this =
             [
                 yield FileWithTime.File.FromFile sample
             ]
+        // Add ty to provided assembly
+        asm.AddTypes [ty]
+        // Add top types
+        let topTypes =
+            cache
+            |> Seq.filter (fun kvp -> kvp.Key.Parents.IsEmpty)
+            |> Seq.map (fun kvp -> kvp.Value)
+            |> List.ofSeq
+        asm.AddNestedTypes(topTypes, topTypes |> List.map (fun _ -> ty.Name))
+        // Add other types
+        let nested =
+            cache
+            |> Seq.filter (fun kvp -> not kvp.Key.Parents.IsEmpty)
+            |> Seq.sortBy (fun kvp -> kvp.Key.Parents.Length)
+            |> List.ofSeq
+        let defs =
+            nested
+            |> List.map (fun kvp -> kvp.Value)
+        let enclosing =
+            nested
+            |> List.map (fun kvp -> kvp.Key.Parents.[0])
+        asm.AddNestedTypes(defs, enclosing)
         // Result
         ty, modifs, closeLog
 
