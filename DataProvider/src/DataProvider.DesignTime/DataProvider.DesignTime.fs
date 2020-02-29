@@ -172,7 +172,7 @@ module internal Internal =
     /// Build the function that builds ProvidedTypeDefinitions for ValueTypes encountered in the sample mission file.
     /// </summary>
     /// <param name="top">Definition of the top type in the type provider.</param>
-    let mkProvidedTypeBuilder logInfo (pdb : IProvidedDataBuilder) (top : ProvidedTypeDefinition) =
+    let mkProvidedTypeBuilder logInfo (pdb : IProvidedDataBuilder) =
         logInfo "Started inferring all MCU value types"
 
         let cache = new Dictionary<TypeIdentification, ProvidedTypeDefinition>(HashIdentity.Structural)
@@ -183,49 +183,49 @@ module internal Internal =
 
         let ptypBoolean =
             let ptyp =
-                new ProvidedTypeDefinition("Boolean", Some (typeof<Ast.Value>))
+                new ProvidedTypeDefinition("Boolean", Some (typeof<Ast.Value>), isErased=false)
             ptyp.AddMember(pdb.NewProperty("Value", typeof<bool>, fun this -> <@@ (%%this : Ast.Value).GetBool() @@>))
             ptyp.AddMember(pdb.NewConstructor([("Value", typeof<bool>)], fun [value] -> <@@ Ast.Value.Boolean (%%value : bool) @@>))
             ptyp
 
         let ptypFloat =
             let ptyp =
-                new ProvidedTypeDefinition("Float", Some (typeof<Ast.Value>))
+                new ProvidedTypeDefinition("Float", Some (typeof<Ast.Value>), isErased=false)
             ptyp.AddMember(pdb.NewProperty("Value", typeof<float>, fun this -> <@@ (%%this : Ast.Value).GetFloat() @@>))
             ptyp.AddMember(pdb.NewConstructor([("Value", typeof<float>)], fun [value] -> <@@ Ast.Value.Float (%%value : float) @@>))
             ptyp
 
         let ptypFloatPair =
             let ptyp =
-                new ProvidedTypeDefinition("FloatPair", Some (typeof<Ast.Value>))
+                new ProvidedTypeDefinition("FloatPair", Some (typeof<Ast.Value>), isErased=false)
             ptyp.AddMember(pdb.NewProperty("Value", typeof<float * float>, fun this -> <@@ (%%this : Ast.Value).GetFloatPair() @@>))
             ptyp.AddMember(pdb.NewConstructor([("Value", typeof<float * float>)], fun [value] -> <@@ let x, y = (%%value : float * float) in Ast.Value.FloatPair(x, y) @@>))
             ptyp
 
         let ptypInteger =
             let ptyp =
-                new ProvidedTypeDefinition("Integer", Some (typeof<Ast.Value>))
+                new ProvidedTypeDefinition("Integer", Some (typeof<Ast.Value>), isErased=false)
             ptyp.AddMember(pdb.NewProperty("Value", typeof<int>, fun this -> <@@ (%%this : Ast.Value).GetInteger() @@>))
             ptyp.AddMember(pdb.NewConstructor([("Value", typeof<int>)], fun [value] -> <@@ Ast.Value.Integer (%%value : int) @@>))
             ptyp
 
         let ptypString =
             let ptyp =
-                new ProvidedTypeDefinition("String", Some (typeof<Ast.Value>))
+                new ProvidedTypeDefinition("String", Some (typeof<Ast.Value>), isErased=false)
             ptyp.AddMember(pdb.NewProperty("Value", typeof<string>, fun this -> <@@ (%%this : Ast.Value).GetString() @@>))
             ptyp.AddMember(pdb.NewConstructor([("Value", typeof<string>)], fun [value] -> <@@ Ast.Value.String (%%value : string) @@>))
             ptyp
 
         let ptypIntVector =
             let ptyp =
-                new ProvidedTypeDefinition("VectorOfIntegers", Some (typeof<Ast.Value>))
+                new ProvidedTypeDefinition("VectorOfIntegers", Some (typeof<Ast.Value>), isErased=false)
             ptyp.AddMember(pdb.NewProperty("Value", typeof<int list>, fun this -> <@@ (%%this : Ast.Value).GetIntVector() @@>))
             ptyp.AddMember(pdb.NewConstructor([("Value", typeof<int list>)], fun [value] -> <@@ Ast.Value.IntVector (%%value : int list) @@>))
             ptyp
 
         let ptypDate =
             let ptyp =
-                new ProvidedTypeDefinition("Date", Some (typeof<Ast.Value>))
+                new ProvidedTypeDefinition("Date", Some (typeof<Ast.Value>), isErased=false)
             ptyp.AddMember(pdb.NewProperty("Year", typeof<int>, fun this ->
                 let e = <@@ (%%this : Ast.Value).GetDate() @@>
                 <@@ let _, _, year = (%%e : int * int * int) in year @@>))
@@ -275,7 +275,7 @@ module internal Internal =
                     | Ast.ValueType.Composite fields ->
                         let typExpr = typId.Kind.ToExpr()
                         let ptyp =
-                            new ProvidedTypeDefinition(name, Some (typeof<Ast.Value>))
+                            new ProvidedTypeDefinition(name, Some (typeof<Ast.Value>), isErased=false)
                         let parents = name :: typId.Parents
                         // Add types of complex fields as nested types
                         for field in fields do
@@ -307,7 +307,7 @@ module internal Internal =
                         let subName = sprintf "%s_ValueType" name
                         let ptyp1 = getProvidedType { Name = subName; Kind = itemTyp; Parents = name :: typId.Parents }
                         let ptyp =
-                            new ProvidedTypeDefinition(name, Some (typeof<Ast.Value>))
+                            new ProvidedTypeDefinition(name, Some (typeof<Ast.Value>), isErased=false)
                         addComplexNestedType(ptyp, ptyp1, itemTyp)
                         // Constructor from map
                         ptyp.AddMember(pdb.NewConstructor([("map", ProvidedTypeBuilder.MakeGenericType(typedefof<Map<_, _>>, [typeof<int>; ptyp1]))], fun [m] ->
@@ -342,7 +342,7 @@ module internal Internal =
                         let subName = sprintf "%s_ValueType" name
                         let ptyp1 = getProvidedType { Name = subName; Kind = itemTyp; Parents = name :: typId.Parents }
                         let ptyp =
-                            new ProvidedTypeDefinition(name, Some (typeof<Ast.Value>))
+                            new ProvidedTypeDefinition(name, Some (typeof<Ast.Value>), isErased=false)
                         addComplexNestedType(ptyp, ptyp1, itemTyp)
                         // Value getter
                         let propTyp = ProvidedTypeBuilder.MakeGenericType(typedefof<_ list>, [ptyp1])
@@ -366,7 +366,7 @@ module internal Internal =
                 let subName = sprintf "%s_ValueType2" typId.Name
                 getProvidedType { Name = subName; Kind = typ2; Parents = typId.Name :: typId.Parents }
             let ptyp =
-                new ProvidedTypeDefinition(typId.Name, Some (typeof<Ast.Value>))
+                new ProvidedTypeDefinition(typId.Name, Some (typeof<Ast.Value>), isErased=false)
             addComplexNestedType(ptyp, ptyp1, typ1)
             addComplexNestedType(ptyp, ptyp2, typ2)
             // Value getter
@@ -389,7 +389,7 @@ module internal Internal =
                 let subName = sprintf "%s_ValueType3" name
                 getProvidedType { Name = subName; Kind = typ3; Parents = name :: typId.Parents }
             let ptyp =
-                new ProvidedTypeDefinition(name, Some (typeof<Ast.Value>))
+                new ProvidedTypeDefinition(name, Some (typeof<Ast.Value>), isErased=false)
             addComplexNestedType(ptyp, ptyp1, typ1)
             addComplexNestedType(ptyp, ptyp2, typ2)
             addComplexNestedType(ptyp, ptyp3, typ3)
@@ -648,7 +648,7 @@ module internal Internal =
         logInfo "Started building the group parser type"
         let dataListType = ProvidedTypeBuilder.MakeGenericType(typedefof<_ list>, [typeof<Ast.Data>])
         let parser =
-            ProvidedTypeDefinition("GroupData", Some dataListType)
+            ProvidedTypeDefinition("GroupData", Some dataListType, isErased=false)
             |> addXmlDoc """Extraction of data from a mission or group file."""
         let valueTypeOfName =
             namedValueTypes
@@ -745,22 +745,6 @@ type MissionTypes(config: TypeProviderConfig) as this =
     // check we contain a copy of runtime files, and are not referencing the runtime DLL
     do assert (typeof<Parsing.Stream>.Assembly.GetName().Name = asm.GetName().Name)  
 
-    let provider = ProvidedTypeDefinition(asm, ns, "Provider", Some(typeof<obj>))
-    do provider.AddXmlDoc("""
-    <summary>
-    Exposes typed data from "IL2 Sturmovik: Battle of Stalingrad" mission files.
-    </summary>
-    <param name="sample">
-    Name of a mission file from which the structure of missions is infered.
-    </param>
-    <param name="enableLogging">
-    Control whether calls to type provider are logged to files in %LocalAppData%/SturmovikMission.DataProvider.
-    False (logging disabled) by default
-    </param>
-    """)
-    let sampleParam = ProvidedStaticParameter("sample", typeof<string>)
-    let enableLoggingParam = ProvidedStaticParameter("enableLogging", typeof<bool>, parameterDefaultValue = false)
-
     let buildProvider (enableLogging : bool) (typeName : string, sample : string) =
         let logInfo, closeLog =
             if enableLogging then
@@ -778,9 +762,9 @@ type MissionTypes(config: TypeProviderConfig) as this =
         logInfo(sprintf "Provider invoked with sample '%s' using invokeCodeImpl '%s'" sample (string invokeImpl))
 
         let pdb = Internal.mkProvidedDataBuilder invokeImpl
-        let ty = new ProvidedTypeDefinition(asm, ns, typeName, Some(typeof<obj>))
+        let ty = new ProvidedTypeDefinition(asm, ns, typeName, Some(typeof<obj>), isErased=false)
         // The types corresponding to the ValueTypes extracted from the sample file
-        let getProvidedType, cache = Internal.mkProvidedTypeBuilder logInfo pdb ty
+        let getProvidedType, cache = Internal.mkProvidedTypeBuilder logInfo pdb
         let types, _ = AutoSchema.getTopTypes(Parsing.Stream.FromFile(sample))
         // Add top types
         for t in types do
@@ -836,6 +820,22 @@ type MissionTypes(config: TypeProviderConfig) as this =
     // Cache the top provided type definitions.
     let cache = new Dictionary<(string * string), ProvidedTypeDefinition * (FileWithTime.File list) * (unit -> unit) >(HashIdentity.Structural)
     let getProvider logInfo = cached cache (buildProvider logInfo)
+
+    let provider = ProvidedTypeDefinition(asm, ns, "Provider", Some(typeof<obj>), isErased=false)
+    do provider.AddXmlDoc("""
+    <summary>
+    Exposes typed data from "IL2 Sturmovik: Battle of Stalingrad" mission files.
+    </summary>
+    <param name="sample">
+    Name of a mission file from which the structure of missions is infered.
+    </param>
+    <param name="enableLogging">
+    Control whether calls to type provider are logged to files in %LocalAppData%/SturmovikMission.DataProvider.
+    False (logging disabled) by default
+    </param>
+    """)
+    let sampleParam = ProvidedStaticParameter("sample", typeof<string>)
+    let enableLoggingParam = ProvidedStaticParameter("enableLogging", typeof<bool>, parameterDefaultValue = false)
 
     do provider.DefineStaticParameters([sampleParam; enableLoggingParam], fun typeName [| sample; enableLogging |] ->
         let resolve (path : string) =
