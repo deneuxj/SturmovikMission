@@ -824,6 +824,7 @@ type MissionTypes(config: TypeProviderConfig) as this =
             |> Seq.map (fun kvp -> kvp.Value)
             |> List.ofSeq
         asm.AddNestedTypes(topTypes, topTypes |> List.map (fun _ -> ty.Name))
+        System.Diagnostics.Debugger.Launch() |> ignore
         // Add other types
         let nested =
             cache
@@ -837,6 +838,7 @@ type MissionTypes(config: TypeProviderConfig) as this =
             nested
             |> List.map (fun kvp -> kvp.Key.Parents.[0])
         asm.AddNestedTypes(defs, enclosing)
+        System.Diagnostics.Debugger.Break()
         // Result
         ty, modifs, closeLog
 
