@@ -29,6 +29,10 @@ open SturmovikMission.DataProvider.UniqueNames
 open SturmovikMission.DataProvider
 
 module internal Internal =
+
+    type ExprHelper() =
+        static member IsSome(x : #AstValueWrapper option) = Option.isSome x
+
     type IProvidedDataBuilder =
         /// Build a ProvidedTypeDefinition
         abstract NewType: string * Type -> ProvidedTypeDefinition
@@ -510,10 +514,10 @@ module internal Internal =
                         ptyp,
                         [("value", fieldType :> Type)],
                         fun this args ->
-                            let value = args.[0]
+                            let value = Expr.Coerce(args.[0], typeof<AstValueWrapper>)
                             <@@
-                                let this = (%this : Ast.Value)
-                                this.SetItem(fieldName, (%%value : Ast.Value))
+                                let this2 = (%this).SetItem(fieldName, (%%value : AstValueWrapper).Wrapped)
+                                AstValueWrapper(this2)
                             @@>)
                 | Ast.MinMultiplicity.Zero, Ast.MaxOne ->
                     let optTyp = ProvidedTypeBuilder.MakeGenericType(
@@ -525,9 +529,16 @@ module internal Internal =
                         [("value", optTyp)],
                         fun this args ->
                             let value = args.[0]
+                            let value = Expr.Coerce(value, typeof<AstValueWrapper option>)
+                            //let isSome = <@ (%%value : #AstValueWrapper option).IsSome @> // Expr.PropertyGet(value, optTyp.GetProperty("IsSome"))
+                            //let someValue = Expr.Coerce(Expr.PropertyGet(value, optTyp.GetProperty("Value")), typeof<AstValueWrapper>)
                             <@@
-                                let this = (%this : Ast.Value)
-                                this.SetItem(fieldName, (%%value : Ast.Value option))
+                                let arg = 
+                                    match (%%value : AstValueWrapper option) with
+                                    | Some v -> Some v.Wrapped
+                                    | None -> None
+                                let this2 = (%this).SetItem(fieldName, arg)
+                                AstValueWrapper(this2)
                             @@>)
                 | _, Ast.MaxMultiplicity.Multiple ->
                     let listTyp =
