@@ -32,6 +32,8 @@ open SturmovikMission.DataProvider
 
 module internal Internal =
     type IProvidedDataBuilder =
+        /// Build a ProvidedTypeDefinition
+        abstract NewType: string * Type -> ProvidedTypeDefinition
         /// <summary>
         /// Build a ProvidedConstructor.
         /// </summary>
@@ -116,6 +118,9 @@ module internal Internal =
             | _ ->
                 failwith "Unexpected InvokeCodeImplementation"
 
+        let newType (name : string) (baseType : Type) =
+            ProvidedTypeDefinition(name, Some baseType, isErased=true, isSealed=true)
+
         let newConstructor (args : (string * Type) list) (body : Expr list -> Expr) =
             let args =
                 args
@@ -147,12 +152,42 @@ module internal Internal =
             m
 
         { new IProvidedDataBuilder with
+            member __.NewType(name, baseType) = newType name baseType
             member __.NewConstructor(args, body) = newConstructor args body
             member __.NewProperty(name, typ, body) = newProperty (name, typ) body
             member __.NewStaticProperty(name, typ, body) = newStaticProperty (name, typ) body
             member __.NewMethod(name, typ, args, body) = newMethod (name, typ) args body
             member __.NewStaticMethod(name, typ, args, body) = newStaticMethod (name, typ) args body
         }
+
+    [<AutoOpen>]
+    module AstValueWrapperTypeBuildingHelpers =
+        type IProvidedDataBuilder with
+            member this.NewWrapper(name) = this.NewType(name, typeof<AstValueWrapper>)
+        
+            member this.NewConstructor(args, body) =
+                let body args =
+                    let value = body args
+                    <@@ AstValueWrapper((%value : Ast.Value)) @@>
+                this.NewConstructor(args, body)
+        
+            member this.NewProperty(name, typ, body : Expr<Ast.Value> -> Expr) =
+                let body this =
+                    let this =
+                        <@ (%%this : AstValueWrapper).Wrapped @>
+                    body this
+                this.NewProperty(name, typ, body)
+        
+            member this.NewMethod(name, typ, args, body : Expr<Ast.Value> -> Expr list -> Expr) =
+                let body args =
+                    match args with
+                    | [] ->
+                        failwithf "Missing 'this' argument to instance-bound method '%s'" name
+                    | that :: args ->
+                        let value =
+                            <@ (%%that : AstValueWrapper).Wrapped @>
+                        body value args
+                this.NewMethod(name, typ, args, body)
 
     /// Add documentation to a provided method, constructor, property or type definition.
     let inline addXmlDoc< ^T when ^T: (member AddXmlDoc : string -> unit)> (doc : string) (thing : ^T) : ^T =
@@ -168,6 +203,17 @@ module internal Internal =
         Parents : string list
     }
 
+    let (|GroundType|ComplexType|) kind =
+        match kind with
+        | Ast.ValueType.Boolean
+        | Ast.ValueType.Float
+        | Ast.ValueType.FloatPair
+        | Ast.ValueType.Integer
+        | Ast.ValueType.String
+        | Ast.ValueType.IntVector
+        | Ast.ValueType.Date -> GroundType
+        | _ -> ComplexType
+
     /// <summary>
     /// Build the function that builds ProvidedTypeDefinitions for ValueTypes encountered in the sample mission file.
     /// </summary>
@@ -182,74 +228,61 @@ module internal Internal =
         // Builders for the ground types
 
         let ptypBoolean =
-            let ptyp =
-                new ProvidedTypeDefinition("Boolean", Some (typeof<Ast.Value>), isErased=false)
-            ptyp.AddMember(pdb.NewProperty("Value", typeof<bool>, fun this -> <@@ (%%this : Ast.Value).GetBool() @@>))
-            ptyp.AddMember(pdb.NewConstructor([("Value", typeof<bool>)], fun [value] -> <@@ Ast.Value.Boolean (%%value : bool) @@>))
+            let ptyp = pdb.NewWrapper("Boolean")
+            ptyp.AddMember(pdb.NewProperty("Value", typeof<bool>, fun this -> <@@ (%this : Ast.Value).GetBool() @@>))
+            ptyp.AddMember(pdb.NewConstructor([("Value", typeof<bool>)], fun [value] -> <@ Ast.Value.Boolean (%%value : bool) @>))
             ptyp
 
         let ptypFloat =
-            let ptyp =
-                new ProvidedTypeDefinition("Float", Some (typeof<Ast.Value>), isErased=false)
-            ptyp.AddMember(pdb.NewProperty("Value", typeof<float>, fun this -> <@@ (%%this : Ast.Value).GetFloat() @@>))
-            ptyp.AddMember(pdb.NewConstructor([("Value", typeof<float>)], fun [value] -> <@@ Ast.Value.Float (%%value : float) @@>))
+            let ptyp = pdb.NewWrapper("Float")
+            ptyp.AddMember(pdb.NewProperty("Value", typeof<float>, fun this -> <@@ (%this : Ast.Value).GetFloat() @@>))
+            ptyp.AddMember(pdb.NewConstructor([("Value", typeof<float>)], fun [value] -> <@ Ast.Value.Float (%%value : float) @>))
             ptyp
 
         let ptypFloatPair =
-            let ptyp =
-                new ProvidedTypeDefinition("FloatPair", Some (typeof<Ast.Value>), isErased=false)
+            let ptyp = pdb.NewWrapper("FloatPair")
             ptyp.AddMember(pdb.NewProperty("Value", typeof<float * float>, fun this -> <@@ (%%this : Ast.Value).GetFloatPair() @@>))
-            ptyp.AddMember(pdb.NewConstructor([("Value", typeof<float * float>)], fun [value] -> <@@ let x, y = (%%value : float * float) in Ast.Value.FloatPair(x, y) @@>))
+            ptyp.AddMember(pdb.NewConstructor([("Value", typeof<float * float>)], fun [value] -> <@ let x, y = (%%value : float * float) in Ast.Value.FloatPair(x, y) @>))
             ptyp
 
         let ptypInteger =
-            let ptyp =
-                new ProvidedTypeDefinition("Integer", Some (typeof<Ast.Value>), isErased=false)
+            let ptyp = pdb.NewWrapper("Integer")
             ptyp.AddMember(pdb.NewProperty("Value", typeof<int>, fun this -> <@@ (%%this : Ast.Value).GetInteger() @@>))
-            ptyp.AddMember(pdb.NewConstructor([("Value", typeof<int>)], fun [value] -> <@@ Ast.Value.Integer (%%value : int) @@>))
+            ptyp.AddMember(pdb.NewConstructor([("Value", typeof<int>)], fun [value] -> <@ Ast.Value.Integer (%%value : int) @>))
             ptyp
 
         let ptypString =
-            let ptyp =
-                new ProvidedTypeDefinition("String", Some (typeof<Ast.Value>), isErased=false)
+            let ptyp = pdb.NewWrapper("String")
             ptyp.AddMember(pdb.NewProperty("Value", typeof<string>, fun this -> <@@ (%%this : Ast.Value).GetString() @@>))
-            ptyp.AddMember(pdb.NewConstructor([("Value", typeof<string>)], fun [value] -> <@@ Ast.Value.String (%%value : string) @@>))
+            ptyp.AddMember(pdb.NewConstructor([("Value", typeof<string>)], fun [value] -> <@ Ast.Value.String (%%value : string) @>))
             ptyp
 
         let ptypIntVector =
-            let ptyp =
-                new ProvidedTypeDefinition("VectorOfIntegers", Some (typeof<Ast.Value>), isErased=false)
+            let ptyp = pdb.NewWrapper("VectorOfIntegers")
             ptyp.AddMember(pdb.NewProperty("Value", typeof<int list>, fun this -> <@@ (%%this : Ast.Value).GetIntVector() @@>))
-            ptyp.AddMember(pdb.NewConstructor([("Value", typeof<int list>)], fun [value] -> <@@ Ast.Value.IntVector (%%value : int list) @@>))
+            ptyp.AddMember(pdb.NewConstructor([("Value", typeof<int list>)], fun [value] -> <@ Ast.Value.IntVector (%%value : int list) @>))
             ptyp
 
         let ptypDate =
-            let ptyp =
-                new ProvidedTypeDefinition("Date", Some (typeof<Ast.Value>), isErased=false)
+            let ptyp = pdb.NewWrapper("Date")
             ptyp.AddMember(pdb.NewProperty("Year", typeof<int>, fun this ->
-                let e = <@@ (%%this : Ast.Value).GetDate() @@>
+                let e = <@@ (%this : Ast.Value).GetDate() @@>
                 <@@ let _, _, year = (%%e : int * int * int) in year @@>))
             ptyp.AddMember(pdb.NewProperty("Month", typeof<int>, fun this ->
-                let e = <@@ (%%this : Ast.Value).GetDate() @@>
+                let e = <@@ (%this : Ast.Value).GetDate() @@>
                 <@@ let _, month, _ = (%%e : int * int * int) in month @@>))
             ptyp.AddMember(pdb.NewProperty("Day", typeof<int>, fun this ->
-                let e = <@@ (%%this : Ast.Value).GetDate() @@>
+                let e = <@@ (%this : Ast.Value).GetDate() @@>
                 <@@ let day, _, _ = (%%e : int * int * int) in day @@>))
             ptyp.AddMember(pdb.NewConstructor([("Day", typeof<int>); ("Month", typeof<int>); ("Year", typeof<int>)], fun [day; month; year] ->
-                <@@ Ast.Value.Date((%%day : int), (%%month : int), (%%year : int)) @@>))
+                <@ Ast.Value.Date((%%day : int), (%%month : int), (%%year : int)) @>))
             ptyp
 
-        let addComplexNestedType(ptyp : ProvidedTypeDefinition, subpTyp : ProvidedTypeDefinition, kind : Ast.ValueType) =
+        let addComplexNestedType(ptyp : ProvidedTypeDefinition, subpTyp : ProvidedTypeDefinition, kind) =
             match kind with
-            | Ast.ValueType.Boolean
-            | Ast.ValueType.Float
-            | Ast.ValueType.FloatPair
-            | Ast.ValueType.Integer
-            | Ast.ValueType.String
-            | Ast.ValueType.IntVector
-            | Ast.ValueType.Date -> () // Ground type, do nothing
-            | _ ->
-                // Complex type, add it
+            | GroundType ->
+                ()
+            | ComplexType ->
                 match ptyp.GetMember(subpTyp.Name) with
                 | [||] ->
                     ptyp.AddMember(subpTyp)
@@ -274,8 +307,7 @@ module internal Internal =
                     | Ast.ValueType.Triplet (typ1, typ2, typ3) -> buildTriple(typId, typ1, typ2, typ3)
                     | Ast.ValueType.Composite fields ->
                         let typExpr = typId.Kind.ToExpr()
-                        let ptyp =
-                            new ProvidedTypeDefinition(name, Some (typeof<Ast.Value>), isErased=false)
+                        let ptyp = pdb.NewWrapper(name)
                         let parents = name :: typId.Parents
                         // Add types of complex fields as nested types
                         for field in fields do
@@ -296,9 +328,9 @@ module internal Internal =
                         // Parse
                         ptyp.AddMemberDelayed(fun() -> staticParser (typId.Kind, name, ptyp))
                         // Dump to text
-                        let meth = pdb.NewMethod("AsString", typeof<string>, [], fun [this] ->
+                        let meth = pdb.NewMethod("AsString", typeof<string>, [], fun this _ ->
                             <@@
-                                sprintf "%s %s" name (Ast.dump (%%this : Ast.Value))
+                                sprintf "%s %s" name (Ast.dump (%this : Ast.Value))
                             @@>)
                         ptyp.AddMember(meth)
                         // Result
@@ -306,34 +338,33 @@ module internal Internal =
                     | Ast.ValueType.Mapping itemTyp ->
                         let subName = sprintf "%s_ValueType" name
                         let ptyp1 = getProvidedType { Name = subName; Kind = itemTyp; Parents = name :: typId.Parents }
-                        let ptyp =
-                            new ProvidedTypeDefinition(name, Some (typeof<Ast.Value>), isErased=false)
+                        let ptyp = pdb.NewWrapper(name)
                         addComplexNestedType(ptyp, ptyp1, itemTyp)
                         // Constructor from map
                         ptyp.AddMember(pdb.NewConstructor([("map", ProvidedTypeBuilder.MakeGenericType(typedefof<Map<_, _>>, [typeof<int>; ptyp1]))], fun [m] ->
-                            <@@
+                            <@
                                 let m = (%%m : Map<int, Ast.Value>)
                                 Ast.Value.Mapping(Map.toList m)
-                            @@>))
+                            @>))
                         // Value getter
                         let propTyp = ProvidedTypeBuilder.MakeGenericType(typedefof<Map<_,_>>, [typeof<int>; ptyp1])
-                        ptyp.AddMember(pdb.NewProperty("Value", propTyp, fun this -> <@@ (%%this : Ast.Value).GetMapping() |> Map.ofList @@>))
+                        ptyp.AddMember(pdb.NewProperty("Value", propTyp, fun this -> <@@ (%this : Ast.Value).GetMapping() |> Map.ofList @@>))
                         // Set item in the map
-                        ptyp.AddMember(pdb.NewMethod("SetItem", ptyp, [("Key", typeof<int>); ("Value", upcast ptyp1)], fun [this; key; value] ->
+                        ptyp.AddMember(pdb.NewMethod("SetItem", ptyp, [("Key", typeof<int>); ("Value", upcast ptyp1)], fun this [key; value] ->
                             <@@
-                                let this = (%%this : Ast.Value)
+                                let this = (%this : Ast.Value)
                                 this.SetItem((%%key : int), (%%value : Ast.Value))
                             @@>))
                         // Remove item from the map
-                        ptyp.AddMember(pdb.NewMethod("RemoveItem", ptyp, ["Key", typeof<int>], fun [this; key] ->
+                        ptyp.AddMember(pdb.NewMethod("RemoveItem", ptyp, ["Key", typeof<int>], fun this [key] ->
                             <@@
-                                let this = (%%this : Ast.Value)
+                                let this = (%this : Ast.Value)
                                 this.RemoveItem(%%key : int)
                             @@>))
                         // Clear map
-                        ptyp.AddMember(pdb.NewMethod("Clear", ptyp, [], fun [this] ->
+                        ptyp.AddMember(pdb.NewMethod("Clear", ptyp, [], fun this _ ->
                             <@@
-                                let this = (%%this : Ast.Value)
+                                let this = (%this : Ast.Value)
                                 this.Clear()
                             @@>))
                         // Result
@@ -341,19 +372,18 @@ module internal Internal =
                     | Ast.ValueType.List itemTyp ->
                         let subName = sprintf "%s_ValueType" name
                         let ptyp1 = getProvidedType { Name = subName; Kind = itemTyp; Parents = name :: typId.Parents }
-                        let ptyp =
-                            new ProvidedTypeDefinition(name, Some (typeof<Ast.Value>), isErased=false)
+                        let ptyp = pdb.NewWrapper(name)
                         addComplexNestedType(ptyp, ptyp1, itemTyp)
                         // Value getter
                         let propTyp = ProvidedTypeBuilder.MakeGenericType(typedefof<_ list>, [ptyp1])
-                        ptyp.AddMember(pdb.NewProperty("Value", propTyp, fun this -> <@@ (%%this : Ast.Value).GetList() @@>))
+                        ptyp.AddMember(pdb.NewProperty("Value", propTyp, fun this -> <@@ (%this : Ast.Value).GetList() @@>))
                         // constructor with value
-                        ptyp.AddMember(pdb.NewConstructor(["items", propTyp], fun [items] -> <@@ Ast.Value.List (%%items : Ast.Value list)@@>))
+                        ptyp.AddMember(pdb.NewConstructor(["items", propTyp], fun [items] -> <@ Ast.Value.List (%%items : Ast.Value list)@>))
                         // Result
                         ptyp
                 // Add a default constructor
                 let defaultValue = Ast.defaultExprValue typId.Kind
-                ptyp.AddMember(pdb.NewConstructor([], fun [] -> defaultValue.Raw))
+                ptyp.AddMember(pdb.NewConstructor([], fun [] -> defaultValue))
                 ptyp
             finally
                 logInfo <| sprintf "Done building provided type for %s" typId.Name
@@ -365,15 +395,14 @@ module internal Internal =
             let ptyp2 =
                 let subName = sprintf "%s_ValueType2" typId.Name
                 getProvidedType { Name = subName; Kind = typ2; Parents = typId.Name :: typId.Parents }
-            let ptyp =
-                new ProvidedTypeDefinition(typId.Name, Some (typeof<Ast.Value>), isErased=false)
+            let ptyp = pdb.NewWrapper(typId.Name)
             addComplexNestedType(ptyp, ptyp1, typ1)
             addComplexNestedType(ptyp, ptyp2, typ2)
             // Value getter
             let propTyp = ProvidedTypeBuilder.MakeGenericType(typedefof<_*_>, [ptyp1; ptyp2])
-            ptyp.AddMember(pdb.NewProperty("Value", propTyp, fun this -> <@@ (%%this : Ast.Value).GetPair() @@>))
+            ptyp.AddMember(pdb.NewProperty("Value", propTyp, fun this -> <@@ (%this : Ast.Value).GetPair() @@>))
             // Constructor
-            ptyp.AddMember(pdb.NewConstructor([("Value", propTyp)], fun [value] -> <@@ Ast.Value.Pair (%%value : Ast.Value * Ast.Value) @@>))
+            ptyp.AddMember(pdb.NewConstructor([("Value", propTyp)], fun [value] -> <@ Ast.Value.Pair (%%value : Ast.Value * Ast.Value) @>))
             // Result
             ptyp
 
@@ -388,16 +417,15 @@ module internal Internal =
             let ptyp3 =
                 let subName = sprintf "%s_ValueType3" name
                 getProvidedType { Name = subName; Kind = typ3; Parents = name :: typId.Parents }
-            let ptyp =
-                new ProvidedTypeDefinition(name, Some (typeof<Ast.Value>), isErased=false)
+            let ptyp = pdb.NewWrapper(name)
             addComplexNestedType(ptyp, ptyp1, typ1)
             addComplexNestedType(ptyp, ptyp2, typ2)
             addComplexNestedType(ptyp, ptyp3, typ3)
             let propTyp = ProvidedTypeBuilder.MakeTupleType([ptyp1; ptyp2; ptyp3])
             // Value getter
-            ptyp.AddMember(pdb.NewProperty("Value", propTyp, fun this -> <@@ (%%this : Ast.Value).GetTriplet() @@>))
+            ptyp.AddMember(pdb.NewProperty("Value", propTyp, fun this -> <@@ (%this : Ast.Value).GetTriplet() @@>))
             // Constructor
-            ptyp.AddMember(pdb.NewConstructor([("Value", propTyp)], fun [value] -> <@@ Ast.Value.Triplet (%%value : Ast.Value * Ast.Value * Ast.Value) @@>))
+            ptyp.AddMember(pdb.NewConstructor([("Value", propTyp)], fun [value] -> <@ Ast.Value.Triplet (%%value : Ast.Value * Ast.Value * Ast.Value) @>))
             // Result
             ptyp
 
@@ -414,7 +442,7 @@ module internal Internal =
                             sprintf "Get%s" fieldName,
                             fieldType,
                             [],
-                            fun [this] ->
+                            fun this _ ->
                                 let e = asList this
                                 <@@
                                     match List.tryFind (fun (name, _) -> name = fieldName) %e with
@@ -430,7 +458,7 @@ module internal Internal =
                             sprintf "TryGet%s" fieldName,
                             optTyp,
                             [],
-                            fun [this] ->
+                            fun this _ ->
                                 let e = asList this
                                 <@@
                                     match List.tryFind (fun (name, _) -> name = fieldName) %e with
@@ -446,7 +474,7 @@ module internal Internal =
                             sprintf "Get%ss" fieldName,
                             listTyp,
                             [],
-                            fun [this] ->
+                            fun this _ ->
                                 let e = asList this
                                 <@@
                                     List.filter (fun (name, _) -> name = fieldName) %e
@@ -470,23 +498,23 @@ module internal Internal =
                     pdb.NewMethod(
                         sprintf "Set%s" fieldName,
                         ptyp,
-                        [("value", upcast fieldType)],
-                        fun [this; value] ->
+                        [("value", fieldType :> Type)],
+                        fun this [value] ->
                             <@@
-                                let this = (%%this : Ast.Value)
+                                let this = (%this : Ast.Value)
                                 this.SetItem(fieldName, (%%value : Ast.Value))
                             @@>)
                 | Ast.MinMultiplicity.Zero, Ast.MaxOne ->
-                    let optTyp =
-                        typedefof<_ option>
-                            .MakeGenericType(fieldType)
+                    let optTyp = ProvidedTypeBuilder.MakeGenericType(
+                                    typedefof<_ option>,
+                                    [fieldType])
                     pdb.NewMethod(
                         sprintf "Set%s" fieldName,
                         ptyp,
                         [("value", optTyp)],
-                        fun [this; value] ->
+                        fun this [value] ->
                             <@@
-                                let this = (%%this : Ast.Value)
+                                let this = (%this : Ast.Value)
                                 this.SetItem(fieldName, (%%value : Ast.Value option))
                             @@>)
                 | _, Ast.MaxMultiplicity.Multiple ->
@@ -498,9 +526,9 @@ module internal Internal =
                         sprintf "Set%s" fieldName,
                         ptyp,
                         [("value", listTyp)],
-                        fun [this; value] ->
+                        fun this [value] ->
                             <@@
-                                let this = (%%this : Ast.Value)
+                                let this = (%this : Ast.Value)
                                 this.ClearItems(fieldName).AddItems(fieldName, (%%value : Ast.Value list))
                             @@>)
                 |> addXmlDoc (sprintf """<summary>Create a copy of this, with the value of field '%s' changed to <paramref name="value" />.</summary>""" fieldName))
@@ -550,10 +578,10 @@ module internal Internal =
             let body (args : Expr list) =
                 let args =
                     args
-                    |> List.fold (fun expr arg -> <@ (%%arg : Ast.Value) :: %expr @>) <@ [] @>
-                <@@
+                    |> List.fold (fun expr arg -> <@ ((%%arg : obj) :?> Ast.Value) :: %expr @>) <@ [] @>
+                <@
                     Ast.Value.Composite(List.zip %argNames %args)
-                @@>
+                @>
             match args with
             | [] ->
                 None
@@ -613,7 +641,7 @@ module internal Internal =
         let method =
             pdb.NewMethod("CreateMcuList", typeof<Mcu.McuBase list>, [], fun [this] ->
                 <@@
-                let this = (%%this : Ast.Data list)
+                let this = (%%this : GroupMembers)
                 let valueTypeOfName = %valueTypeOfName
                 let mcuMakerOfName =
                     %names
@@ -622,7 +650,7 @@ module internal Internal =
                         (name, McuFactory.tryMakeMcu(name, valueType))
                     )
                     |> Map.ofList
-                this
+                this.Items
                 |> List.map (fun data -> data.GetLeavesWithPath())
                 |> List.concat
                 |> List.choose (fun (path, name, value) ->
@@ -648,7 +676,7 @@ module internal Internal =
         logInfo "Started building the group parser type"
         let dataListType = ProvidedTypeBuilder.MakeGenericType(typedefof<_ list>, [typeof<Ast.Data>])
         let parser =
-            ProvidedTypeDefinition("GroupData", Some dataListType, isErased=false)
+            pdb.NewType("GroupData", typeof<GroupMembers>)
             |> addXmlDoc """Extraction of data from a mission or group file."""
         let valueTypeOfName =
             namedValueTypes
@@ -666,30 +694,36 @@ module internal Internal =
                         |> Map.map (fun name valueType -> Parsing.makeParser valueType)
                     let getParser name = parsers.[name]
                     let s = (%%s : Parsing.Stream)
-                    Parsing.parseFile getParser s
+                    let data = Parsing.parseFile getParser s
+                    GroupMembers(data)
                 @@>)
             |> addXmlDoc """
                 <summary>Parse a mission or group file and store the extracted data.</summary>
                 <param name="s">The stream that is parsed</param>
                 <exception cref="Parsing.ParseError">Failed to parse the mission or group</exception>""")
         // Constructor: From a list of AST nodes
-        parser.AddMemberDelayed(fun () ->
+        let constructFromList =
             pdb.NewConstructor([("nodes", dataListType)], fun [nodes] ->
                 <@@
-                    (%%nodes : Ast.Data list)
+                    GroupMembers(%%nodes : Ast.Data list)
                 @@>)
             |> addXmlDoc """
                 <summary>Provide access to parsed data.</summary>
-                <param name="nodes">The result of parsing a group or mission file</param>""")
+                <param name="nodes">The result of parsing a group or mission file</param>"""
+        parser.AddMemberDelayed(fun () -> constructFromList)
         // Get data from a subgroup
         parser.AddMemberDelayed(fun () ->
             pdb.NewMethod("GetGroup", parser, [("name", typeof<string>)], fun [this; name] ->
-                <@@
-                    let nodes = (%%this : Ast.Data list)
-                    nodes
-                    |> List.map (fun node -> node.FindByPath [(%%name : string)])
-                    |> List.concat
-                @@>
+                let callConstructor (arg : Expr<Ast.Data list>) =
+                    Expr.NewObject(constructFromList, [arg])
+                let nodes =
+                    <@
+                        let nodes = (%%this : GroupMembers).Items
+                        nodes
+                        |> List.map (fun node -> node.FindByPath [(%%name : string)])
+                        |> List.concat
+                    @>
+                callConstructor nodes
             )
             |> addXmlDoc """
                 <summary>Get data from a subgroup</summary>
@@ -699,9 +733,9 @@ module internal Internal =
             parser.AddMemberDelayed(fun() ->
                 pdb.NewProperty(sprintf "ListOf%s" name, ProvidedTypeBuilder.MakeGenericType(typedefof<_ list>, [ptyp]), fun this ->
                     <@@
-                        let this = (%%this : Ast.Data list)
+                        let this = (%%this : GroupMembers)
                         let ret =
-                            this
+                            this.Items
                             |> List.map (fun data -> data.GetLeaves())
                             |> List.concat
                             |> List.choose (function (name2, value) -> if name2 = name then Some value else None)
@@ -768,14 +802,18 @@ type MissionTypes(config: TypeProviderConfig) as this =
         let getProvidedType, cache = Internal.mkProvidedTypeBuilder logInfo pdb
         let types, _ = AutoSchema.getTopTypes(Parsing.Stream.FromFile(sample))
         // Add top types
-        for t in types do
-            let typeDef = getProvidedType { Name = t.Key; Kind = t.Value; Parents = [] }
-            ty.AddMember(typeDef)
+        let topTypeDefs =
+            types
+            |> Seq.map (fun kvp -> getProvidedType { Name = kvp.Key; Kind = kvp.Value; Parents = [] })
+            |> List.ofSeq
+        ty.AddMembers topTypeDefs
         // Add ground types
-        for kind, name in Seq.zip Ast.groundValueTypes Ast.groundValueTypeNames do
-            let typeDef = getProvidedType { Name = name; Kind = kind; Parents = [] }
-            ty.AddMember(typeDef)
-        // The type of the parser.
+        let groundTypeDefs =
+            Seq.zip Ast.groundValueTypes Ast.groundValueTypeNames
+            |> Seq.map (fun (kind, name) -> getProvidedType { Name = name; Kind = kind; Parents = [] })
+            |> List.ofSeq
+        ty.AddMembers(groundTypeDefs)
+        // All types, but filter out cache entries for fields with ground types
         let namedTypes =
             cache
             |> Seq.choose (fun kvp ->
@@ -789,7 +827,7 @@ type MissionTypes(config: TypeProviderConfig) as this =
                 | _ ->
                     Some(typId.Name, typId.Kind, kvp.Value))
             |> List.ofSeq
-        // The type of the file parser.
+        // Types that can appear at the top level of mission files
         let topComplexTypes =
             cache
             |> Seq.choose (fun kvp ->
@@ -800,6 +838,7 @@ type MissionTypes(config: TypeProviderConfig) as this =
                 | _ ->
                     None)
             |> List.ofSeq
+        // The type of the file parser.
         let parserType = Internal.buildGroupParserType logInfo pdb namedTypes topComplexTypes
         ty.AddMember(parserType)
         // Resolution folder
@@ -815,30 +854,24 @@ type MissionTypes(config: TypeProviderConfig) as this =
             [
                 yield FileWithTime.File.FromFile sample
             ]
-        // Add ty to provided assembly
+        // Add the root type to provided assembly
         asm.AddTypes [ty]
-        // Add top types
-        let topTypes =
-            cache
-            |> Seq.filter (fun kvp -> kvp.Key.Parents.IsEmpty)
-            |> Seq.map (fun kvp -> kvp.Value)
-            |> List.ofSeq
-        asm.AddNestedTypes(topTypes, topTypes |> List.map (fun _ -> ty.Name))
+        //// Add complex top types
+        //asm.AddNestedTypes(topTypeDefs, [ty.Name])
+        //// Add ground types
+        //asm.AddNestedTypes(groundTypeDefs, [ty.Name])
         System.Diagnostics.Debugger.Launch() |> ignore
-        // Add other types
-        let nested =
-            cache
-            |> Seq.filter (fun kvp -> not kvp.Key.Parents.IsEmpty)
-            |> Seq.sortBy (fun kvp -> kvp.Key.Parents.Length)
-            |> List.ofSeq
-        let defs =
-            nested
-            |> List.map (fun kvp -> kvp.Value)
-        let enclosing =
-            nested
-            |> List.map (fun kvp -> kvp.Key.Parents.[0])
-        asm.AddNestedTypes(defs, enclosing)
-        System.Diagnostics.Debugger.Break()
+        ////Add complex nested types
+        //let nested =
+        //    cache
+        //    |> Seq.filter (fun kvp -> not kvp.Key.Parents.IsEmpty)
+        //    |> Seq.filter (fun kvp -> match kvp.Key.Kind with Internal.ComplexType -> true | _ -> false)
+        //    |> Seq.sortBy (fun kvp -> kvp.Key.Parents.Length)
+        //    |> Seq.groupBy (fun kvp -> ty.Name :: List.rev kvp.Key.Parents)
+        //    |> Seq.map (fun (enclosing, items) -> items |> Seq.map (fun kvp -> kvp.Value) |> List.ofSeq, enclosing)
+        //for defs, enclosing in nested do
+        //    asm.AddNestedTypes(defs, enclosing)
+        //System.Diagnostics.Debugger.Break()
         // Result
         ty, modifs, closeLog
 

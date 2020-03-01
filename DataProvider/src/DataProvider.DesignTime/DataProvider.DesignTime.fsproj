@@ -34,6 +34,7 @@
     <Compile Include="..\DataProvider.Runtime\Parsing.fs" Link="Parsing.fs" />
     <Compile Include="..\DataProvider.Runtime\AutoSchema.fs" Link="AutoSchema.fs" />
     <Compile Include="..\DataProvider.Runtime\McuFactory.fs" Link="McuFactory.fs" />
+    <Compile Include="..\DataProvider.Runtime\ValueWrapper.fs" Link="ValueWrapper.fs" />
     <Compile Include="DataProvider.DesignTime.fs" />
     <None Include="paket.references" />
     <None Include="..\..\packages\NETStandard.Library.NETFramework\build\net461\lib\netstandard.dll" Condition="'$(TargetFramework)' == 'net45'">

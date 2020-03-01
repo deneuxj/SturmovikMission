@@ -33,6 +33,7 @@
     <Compile Include="Parsing.fs" />
     <Compile Include="AutoSchema.fs" />
     <Compile Include="McuFactory.fs" />
+    <Compile Include="ValueWrapper.fs" />
     <Compile Include="DataProvider.Runtime.fs" />
     <None Include="paket.references" />
     <None Include="paket.template" />
