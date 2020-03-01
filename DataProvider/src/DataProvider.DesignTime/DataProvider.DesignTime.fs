@@ -571,23 +571,27 @@ module internal Internal =
                     | _, Ast.MaxMultiplicity.Multiple ->
                         None)
                 |> List.ofSeq
-            let argNames =
-                args
-                |> Seq.map fst
-                |> Seq.fold (fun expr name -> <@ name :: %expr@>) <@ [] @>
-            let body (args : Expr list) =
-                let args =
-                    args
-                    |> List.fold (fun expr arg -> <@ ((%%arg : obj) :?> Ast.Value) :: %expr @>) <@ [] @>
-                <@
-                    Ast.Value.Composite(List.zip %argNames %args)
-                @>
             match args with
             | [] ->
                 None
-            | args ->
+            | args when args.Length < 8 ->
+                let argNames =
+                    args
+                    |> Seq.map fst
+                    |> Seq.fold (fun expr name -> <@ name :: %expr@>) <@ [] @>
+                let body (args : Expr list) =
+                    let args =
+                        args
+                        |> List.fold (fun expr arg ->
+                            let wrapper = Expr.Cast<AstValueWrapper>(Expr.Coerce(arg, typeof<AstValueWrapper>))
+                            <@ (%wrapper).Wrapped :: %expr @>) <@ [] @>
+                    <@
+                        Ast.Value.Composite(List.zip %argNames %args)
+                    @>
                 pdb.NewConstructor(args, body)
                 |> Some
+            | _ ->
+                None
 
         // static method to create a parser
         and staticParser (valueType : Ast.ValueType, name, ptyp) =
