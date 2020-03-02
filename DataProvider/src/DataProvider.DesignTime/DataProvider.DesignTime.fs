@@ -30,8 +30,41 @@ open SturmovikMission.DataProvider
 
 module internal Internal =
 
-    type ExprHelper() =
-        static member IsSome(x : #AstValueWrapper option) = Option.isSome x
+    type Expr with
+        /// Convert a raw expression to a typed expression with a given target type.
+        /// This is useful to insert values with generated types into quotation holes using their base type.
+        static member Convert<'TargetType>(e : Expr) =
+            let sourceType = e.Type
+            let targetType = typeof<'TargetType>
+            //if not(targetType.IsAssignableFrom(sourceType)) then
+            //    sprintf "source type '%s' is not assignable to target type '%s'" sourceType.FullName targetType.FullName
+            //    |> invalidArg "sourceType"
+            let auxVar = Quotations.Var("aux", sourceType)
+            Expr.Let(auxVar, e, Expr.Coerce(Expr.Var auxVar, targetType))
+            |> Expr.Cast<'TargetType>
+
+        static member ConvertList<'TargetType>(e : Expr) =
+            let sourceItemType =
+                if e.Type.IsGenericType && e.Type.GetGenericTypeDefinition().FullName = typedefof<_ list>.FullName then
+                    e.Type.GenericTypeArguments.[0]
+                else
+                    invalidArg "e" <| sprintf "source type '%s' is not a list" (e.Type.FullName)
+            let targetItemType = typeof<'TargetType>
+            let sourceType = e.Type
+            let convItem =
+                let lamVar = Quotations.Var("x", sourceItemType)
+                Expr.Lambda(lamVar, Expr.Coerce(Expr.Var lamVar, targetItemType))
+            let auxVar = Quotations.Var("aux", sourceType)
+            let convList =
+                let inner =
+                    Expr.Application(
+                        <@@ List.map @@>,
+                        convItem)
+                Expr.Application(
+                    inner,
+                    Expr.Var auxVar)
+            Expr.Let(auxVar, e, convList)
+            |> Expr.Cast<'TargetType list>
 
     type IProvidedDataBuilder =
         /// Build a ProvidedTypeDefinition
@@ -514,9 +547,9 @@ module internal Internal =
                         ptyp,
                         [("value", fieldType :> Type)],
                         fun this args ->
-                            let value = Expr.Coerce(args.[0], typeof<AstValueWrapper>)
+                            let value = Expr.Convert<AstValueWrapper>(args.[0])
                             <@@
-                                let this2 = (%this).SetItem(fieldName, (%%value : AstValueWrapper).Wrapped)
+                                let this2 = (%this).SetItem(fieldName, (%value).Wrapped)
                                 AstValueWrapper(this2)
                             @@>)
                 | Ast.MinMultiplicity.Zero, Ast.MaxOne ->
@@ -550,10 +583,10 @@ module internal Internal =
                         ptyp,
                         [("value", listTyp)],
                         fun this args ->
-                            let value = args.[0]
+                            let value = Expr.ConvertList<AstValueWrapper>(args.[0])
                             <@@
-                                let this = (%this : Ast.Value)
-                                this.ClearItems(fieldName).AddItems(fieldName, (%%value : Ast.Value list))
+                                let xs = (%value) |> List.map (fun wrapper -> wrapper.Wrapped)
+                                AstValueWrapper((%this).ClearItems(fieldName).AddItems(fieldName, xs))
                             @@>)
                 |> addXmlDoc (sprintf """<summary>Create a copy of this, with the value of field '%s' changed to <paramref name="value" />.</summary>""" fieldName))
             |> List.ofSeq
