@@ -709,11 +709,10 @@ module internal Internal =
             |> addXmlDoc """Extraction of data from a mission or group file."""
         let valueTypeOfName =
             namedValueTypes
-            |> List.fold (fun expr (name, valueType, _) ->
-                <@
-                    Map.add name %(valueType.ToExpr()) %expr
-                @>
-                ) <@ Map.empty @>
+            |> Seq.map (fun (name, vt, _) -> (name, vt))
+            |> Map.ofSeq
+            |> Expr.Value
+            |> Expr.Cast<Map<string, Ast.ValueType>>
         // Constructor: Parse a group or mission file
         parser.AddMemberDelayed(fun() ->
             pdb.NewConstructor([("s", typeof<Parsing.Stream>)], fun args ->
