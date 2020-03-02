@@ -94,13 +94,27 @@ let rec buildExprFromValueType expr =
     | Triplet (p1, p2, p3) -> <@ Triplet(%(getExprOfValueType p1), %(getExprOfValueType p2), %(getExprOfValueType p3)) @>
     | FloatPair -> <@ FloatPair @>
     | Composite defs ->
-        let defs =
+        let mapping = Quotations.Var("mapping", typeof<Map<string, ValueType * MinMultiplicity * MaxMultiplicity>>, isMutable=true)
+        let mappingV =
+            Quotations.Expr.Var mapping
+            |> Quotations.Expr.Cast<Map<_, _>>
+        let buildMapping =
             defs
             |> Map.toList
-            |> List.fold (
-                fun e (name, (t, m, M)) ->
-                    let item = <@ name, (%(getExprOfValueType t), %(m.ToExpr()), %(M.ToExpr())) @>
-                    <@ Map.add (fst %item) (snd %item) %e @>) <@ Map.empty @>                            
+            |> List.map (fun (name, (t, m, M)) ->
+                let vt = getExprOfValueType t
+                let m = m.ToExpr()
+                let M = M.ToExpr()
+                Quotations.Expr.VarSet(mapping, <@@ Map.add name (%vt, %m, %M) (%mappingV) @@>)
+                |> Quotations.Expr.Cast<unit>)
+            |> List.fold (fun e1 e2 -> <@ %e2;%e1 @>) <@ ignore() @>
+            |> fun e ->
+                Quotations.Expr.Let(mapping, <@@ Map.empty : Map<string, ValueType * MinMultiplicity * MaxMultiplicity> @@>, e)
+        let defs =
+            <@
+                (%%buildMapping : unit)
+                %mappingV
+            @>
         <@ Composite %defs @>
 
 and getExprOfValueType expr =
