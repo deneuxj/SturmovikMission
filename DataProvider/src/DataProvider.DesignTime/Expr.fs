@@ -17,9 +17,29 @@
 
 namespace SturmovikMission.Expr
 
-module internal ExprExtensions =
+
+module ExprExtensions =
     open FSharp.Quotations
     open System.Collections.Generic
+    open ProviderImplementation.ProvidedTypes.UncheckedQuotations
+    open System.Reflection
+    open System
+    open ProviderImplementation.ProvidedTypes
+
+    let reflAccessBind = BindingFlags.Public ||| BindingFlags.Static
+
+    type ReflectionAccess =
+        member this.Foo() = ()
+
+        [<ReflectedDefinition>]
+        static member MapMap(fn, xs) = xs |> Map.map (fun _ -> fn)
+
+        static member GetStaticMethod(name) = typeof<ReflectionAccess>.GetMethod(name, reflAccessBind)
+
+        static member MapMapExpr(tk, t1, t2) =
+            ProvidedTypeBuilder.MakeGenericMethod(ReflectionAccess.GetStaticMethod("MapMap"), [tk; t1; t2])
+            |> Expr.TryGetReflectedDefinition
+            |> Option.get
 
     type Expr with
         /// Convert a raw expression to a typed expression with a given target type.
@@ -34,3 +54,16 @@ module internal ExprExtensions =
             Expr.Coerce(e, typeof<IEnumerable<'TargetType>>)
             |> Expr.Cast<IEnumerable<'TargetType>>
 
+        /// Convert a raw expression representing a Map<Key, some generated type SourceType> to a Map<Key, TargetType>
+        /// This is useful to insert values which are sequences of some generated type into quotation holes using a sequence of their base type.
+        static member ConvertMap<'Key, 'TargetType when 'Key : comparison>(e : Expr) =
+            let sourceItemType = e.Type.GetGenericArguments().[1]
+            let mapFun = ReflectionAccess.MapMapExpr(sourceItemType, typeof<'TargetType>, typeof<'Key>)
+            Expr.ApplicationUnchecked(
+                mapFun,
+                Expr.NewTuple [
+                    let xVar = Quotations.Var("x", sourceItemType) in Expr.Lambda(xVar, Expr.Coerce(Expr.Var xVar, typeof<'TargetType>));
+                    e
+                ]
+            )
+            |> Expr.Cast<Map<'Key, 'TargetType>>
