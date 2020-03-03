@@ -189,10 +189,14 @@ module internal Internal =
             member this.NewWrapper(name) = this.NewType(name, typeof<AstValueWrapper>)
         
             member this.NewConstructor(args, body) =
+                let constructor = this.NewConstructor(args, fun _ -> Expr.Value(()))
                 let body args =
-                    let value = body args
+                    let value = body (List.tail args)
                     <@@ AstValueWrapper((%value : Ast.Value)) @@>
-                this.NewConstructor(args, body)
+                constructor.BaseConstructorCall <-
+                    fun args ->
+                        typeof<AstValueWrapper>.GetConstructor([| typeof<Ast.Value> |]), [body args]
+                constructor
         
             member this.NewProperty(name, typ, body : Expr<Ast.Value> -> Expr) =
                 let body this =
