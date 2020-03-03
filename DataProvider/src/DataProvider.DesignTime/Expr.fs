@@ -46,7 +46,7 @@ module internal ExprExtensions =
         /// This is useful to insert values which are sequences of some generated type into quotation holes using a sequence of their base type.
         static member ConvertMap<'Key, 'TargetType when 'Key : comparison>(e : Expr) =
             let sourceItemType = e.Type.GetGenericArguments().[1]
-            let miMap = ReflectionAccess.MiMapMap(sourceItemType, typeof<'TargetType>, typeof<'Key>)
+            let miMap = ReflectionAccess.MiMapMap(typeof<'Key>, sourceItemType, typeof<'TargetType>)
             Expr.CallUnchecked(
                 miMap,
                 [
@@ -54,3 +54,4 @@ module internal ExprExtensions =
                     e
                 ]
             )
+            |> Expr.Cast<Map<'Key, 'TargetType>>
