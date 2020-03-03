@@ -30,12 +30,7 @@ open SturmovikMission.DataProvider
 
 module internal Internal =
 
-    type ReflectionAccess =
-        static member ListMap<'SourceItemType, 'TargetItemType>(f : System.Func<'SourceItemType, 'TargetItemType>, xs : 'SourceItemType list) : 'TargetItemType list =
-            xs |> List.map f.Invoke
-
     type Expr with
-
         /// Convert a raw expression to a typed expression with a given target type.
         /// This is useful to insert values with generated types into quotation holes using their base type.
         static member Convert<'TargetType>(e : Expr) =
@@ -48,36 +43,16 @@ module internal Internal =
             Expr.Let(auxVar, e, Expr.Coerce(Expr.Var auxVar, targetType))
             |> Expr.Cast<'TargetType>
 
-        static member ConvertList<'TargetType>(e : Expr) =
-            let sourceItemType =
-                if e.Type.IsGenericType && e.Type.GetGenericTypeDefinition() = typedefof<_ list> then
-                    e.Type.GenericTypeArguments.[0]
-                else
-                    invalidArg "e" <| sprintf "source type '%s' is not a list" (e.Type.FullName)
-            let targetItemType = typeof<'TargetType>
+        /// Convert a raw expression representing an IEnumerable<> to an IEnumerable<'TargetType>
+        /// This is useful to insert values which are sequences of some generated type into quotation holes using a sequence of their base type.
+        static member ConvertEnumerable<'TargetType>(e : Expr) =
             let sourceType = e.Type
-            // func (x : sourceItemType) -> x :> 'TargetType
-            let convItem =
-                let lamVar = Quotations.Var("x", sourceItemType)
-                Expr.Lambda(lamVar, Expr.Coerce(Expr.Var lamVar, targetItemType))
             let auxVar = Quotations.Var("aux", sourceType)
-            // aux |> List.map convItem
-            let convList =
-                let inner =
-                    // List.map<sourceType, 'TargetType list>
-                    let miListMap =
-                        let t = typeof<ReflectionAccess>
-                        let bindingFlags = Reflection.BindingFlags.NonPublic ||| Reflection.BindingFlags.Static
-                        t.GetMethod("ListMap", bindingFlags).MakeGenericMethod(sourceType, typeof<'TargetType list>)
-                    Expr.Call(
-                        miListMap,
-                        [convItem])
-                Expr.Application(
-                    inner,
-                    Expr.Var auxVar)
-            // let aux : sourceType = e in convList
-            Expr.Let(auxVar, e, convList)
-            |> Expr.Cast<'TargetType list>
+            // let aux = e in aux :> IEnumerable<'TargetType>
+            Expr.Let(auxVar, e,
+                        Expr.Coerce(Expr.Var auxVar, typeof<IEnumerable<'TargetType>>)
+            )
+            |> Expr.Cast<IEnumerable<'TargetType>>
 
     type IProvidedDataBuilder =
         /// Build a ProvidedTypeDefinition
@@ -596,9 +571,9 @@ module internal Internal =
                         ptyp,
                         [("value", listTyp)],
                         fun this args ->
-                            let value = Expr.ConvertList<AstValueWrapper>(args.[0])
+                            let value = Expr.ConvertEnumerable<AstValueWrapper>(args.[0])
                             <@@
-                                let xs = (%value) |> List.map (fun wrapper -> wrapper.Wrapped)
+                                let xs = (%value) |> Seq.map (fun wrapper -> wrapper.Wrapped) |> List.ofSeq
                                 AstValueWrapper((%this).ClearItems(fieldName).AddItems(fieldName, xs))
                             @@>)
                 |> addXmlDoc (sprintf """<summary>Create a copy of this, with the value of field '%s' changed to <paramref name="value" />.</summary>""" fieldName))
