@@ -32,12 +32,6 @@ module internal ExprExtensions =
         /// Convert a raw expression representing an IEnumerable<> to an IEnumerable<'TargetType>
         /// This is useful to insert values which are sequences of some generated type into quotation holes using a sequence of their base type.
         static member ConvertEnumerable<'TargetType>(e : Expr) =
-            let sourceType = e.Type
-            let auxVar = Quotations.Var("aux", sourceType)
-            // let aux = e in aux :> IEnumerable<'TargetType>
-            Expr.Let(auxVar, e,
-                        Expr.Coerce(Expr.Var auxVar, typeof<IEnumerable<'TargetType>>)
-            )
+            Expr.Coerce(e, typeof<IEnumerable<'TargetType>>)
             |> Expr.Cast<IEnumerable<'TargetType>>
 
-        /// Convert a
