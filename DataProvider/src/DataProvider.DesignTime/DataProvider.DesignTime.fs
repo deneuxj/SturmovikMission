@@ -225,9 +225,11 @@ module internal Internal =
                         addComplexNestedType(ptyp, ptyp1, itemTyp)
                         // Constructor from map
                         ptyp.AddMember(pdb.NewConstructor([("map", ProvidedTypeBuilder.MakeGenericType(typedefof<Map<_, _>>, [typeof<int>; ptyp1]))], fun args ->
-                            let m = args.[0]
+                            let m = Expr.ConvertMap<int, AstValueWrapper> args.[0]
                             <@
-                                let m = (%%m : Map<int, Ast.Value>)
+                                let m =
+                                    %m
+                                    |> Map.map (fun _ wrapper -> wrapper.Wrapped)
                                 Ast.Value.Mapping(Map.toList m)
                             @>))
                         // Value getter
