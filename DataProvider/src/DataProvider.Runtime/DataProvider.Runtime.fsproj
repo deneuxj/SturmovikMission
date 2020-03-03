@@ -21,14 +21,6 @@
     <None Include="..\..\..\data\Sample.Mission" Link="Sample.Mission">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <Compile Include="..\..\paket-files\fsprojects\FSharp.TypeProviders.SDK\src\ProvidedTypes.fsi">
-      <Paket>True</Paket>
-      <Link>paket-files/ProvidedTypes.fsi</Link>
-    </Compile>
-    <Compile Include="..\..\paket-files\fsprojects\FSharp.TypeProviders.SDK\src\ProvidedTypes.fs">
-      <Paket>True</Paket>
-      <Link>paket-files/ProvidedTypes.fs</Link>
-    </Compile>
     <Compile Include="ReflectionAccess.fs" />
     <Compile Include="Unification.fs" />
     <Compile Include="Parsing.fs" />
