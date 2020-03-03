@@ -27,161 +27,10 @@ open System.IO
 open SturmovikMission.Cached
 open SturmovikMission.DataProvider.UniqueNames
 open SturmovikMission.DataProvider
+open SturmovikMission.ProvidedDataBuilder
 
 module internal Internal =
-
-    type Expr with
-        /// Convert a raw expression to a typed expression with a given target type.
-        /// This is useful to insert values with generated types into quotation holes using their base type.
-        static member Convert<'TargetType>(e : Expr) =
-            let sourceType = e.Type
-            let targetType = typeof<'TargetType>
-            //if not(targetType.IsAssignableFrom(sourceType)) then
-            //    sprintf "source type '%s' is not assignable to target type '%s'" sourceType.FullName targetType.FullName
-            //    |> invalidArg "sourceType"
-            let auxVar = Quotations.Var("aux", sourceType)
-            Expr.Let(auxVar, e, Expr.Coerce(Expr.Var auxVar, targetType))
-            |> Expr.Cast<'TargetType>
-
-        /// Convert a raw expression representing an IEnumerable<> to an IEnumerable<'TargetType>
-        /// This is useful to insert values which are sequences of some generated type into quotation holes using a sequence of their base type.
-        static member ConvertEnumerable<'TargetType>(e : Expr) =
-            let sourceType = e.Type
-            let auxVar = Quotations.Var("aux", sourceType)
-            // let aux = e in aux :> IEnumerable<'TargetType>
-            Expr.Let(auxVar, e,
-                        Expr.Coerce(Expr.Var auxVar, typeof<IEnumerable<'TargetType>>)
-            )
-            |> Expr.Cast<IEnumerable<'TargetType>>
-
-    type IProvidedDataBuilder =
-        /// Build a ProvidedTypeDefinition
-        abstract NewType: string * Type -> ProvidedTypeDefinition
-        /// <summary>
-        /// Build a ProvidedConstructor.
-        /// </summary>
-        /// <param name="args">Argument names and types.</param>
-        /// <param name="body">The code to execute in the constructor.</param>
-        abstract NewConstructor: args: ((string * Type) list) * body: (Expr list -> Expr) -> ProvidedConstructor
-        /// <summary>
-        /// Build a ProvidedProperty.
-        /// </summary>
-        /// <param name="name">Name of the property.</param>
-        /// <param name="typ">Type of the property.</param>
-        /// <param name="body">Code of the property.</param>
-        abstract NewProperty: name: string * typ: Type * body: (Expr -> Expr) -> ProvidedProperty
-        /// Build a static ProvidedProperty.
-        abstract NewStaticProperty: name: string * typ: Type * body: Expr -> ProvidedProperty
-        /// <summary>
-        /// Build a ProvidedMethod.
-        /// </summary>
-        /// <param name="name">Name of the method.</param>
-        /// <param name="typ">Type of returned value.</param>
-        /// <param name="args">Arguments to the method with their respective types.</param>
-        /// <param name="body">Body of the method.</param>
-        abstract NewMethod: name: string * typ: Type * args: (string * Type) list * body: (Expr list -> Expr) -> ProvidedMethod
-        /// Build a static ProvidedMethod.
-        abstract NewStaticMethod: name: string * typ: Type * args : (string * Type) list * body: (Expr list -> Expr) -> ProvidedMethod
-
-    /// <summary>Controls the expression used for the InvokeCode of provided types</summary>
-    /// Visual Studio and possibly other IDEs process expressions in InvokeCodes rather often.
-    /// This can take enough time to render intellisense very sluggish.
-    /// Considering that IDEs typically do not need the bodies of provided types,
-    /// we let the user control whether such expressions should be assigned to InvokeCodes,
-    /// or "empty failwith shells" should be used instead.
-    /// There are three alternatives, two of which excplicitly specify what to do (FailWith and AsProvided),
-    /// and the third lets the implementation guess according to the entry assembly (FromAssembly).
-    type InvokeCodeImplementation =
-        | FailWith = 0
-        | AsProvided = 1
-        | FromAssembly = 2
-
-    let mkProvidedDataBuilder (invokeImpl : InvokeCodeImplementation) =
-        let bodyGate =
-            match invokeImpl with
-            | InvokeCodeImplementation.FailWith ->
-                fun _ -> <@@ failwith "Expressions replaced by shells" @@>
-            | InvokeCodeImplementation.AsProvided ->
-                id
-            | InvokeCodeImplementation.FromAssembly ->
-                // Dirty method that guesses the correct thing to do from the entry assembly and process.
-                let asm = System.Reflection.Assembly.GetEntryAssembly()
-                if asm = null then
-                    let proc = System.Diagnostics.Process.GetCurrentProcess()
-                    match proc.ProcessName with
-                    | "Fsi" -> // Fsi running in an unmanaged process (such as Visual Studio)
-                        id // Use the provided code.
-                    | name -> // Some unmanaged process (such as Visual Studio)
-                        let name = Expr.Value name
-                        fun _ -> <@@ failwithf "Expressions replaced by shells when code was generated with %s" %%name @@> // Replace by empty shells
-                else // Some managed process (such as the F# compiler)
-                    id
-            | _ ->
-                failwith "Unexpected InvokeCodeImplementation"
-
-        let funcGate =
-            match invokeImpl with
-            | InvokeCodeImplementation.FailWith ->
-                fun _ -> fun _ -> <@@ failwith "Functions replaced by shells" @@>
-            | InvokeCodeImplementation.AsProvided ->
-                id
-            | InvokeCodeImplementation.FromAssembly ->
-                // Dirty method that guesses the correct thing to do from the entry assembly and process.
-                let asm = System.Reflection.Assembly.GetEntryAssembly()
-                if asm = null then
-                    let proc = System.Diagnostics.Process.GetCurrentProcess()
-                    match proc.ProcessName with
-                    | "Fsi" -> // Fsi running in an unmanaged process (such as Visual Studio)
-                        id // Use the provided code.
-                    | name -> // Some unmanaged process (such as Visual Studio)
-                        let name = Expr.Value name
-                        fun _ -> fun _ -> <@@ failwithf "Functions replaced by shells when code was generated by %s" %%name @@> // Replace by empty shells
-                else // Some managed process (such as the F# compiler)
-                    id
-            | _ ->
-                failwith "Unexpected InvokeCodeImplementation"
-
-        let newType (name : string) (baseType : Type) =
-            ProvidedTypeDefinition(name, Some baseType, isErased=false, isSealed=true)
-
-        let newConstructor (args : (string * Type) list) (body : Expr list -> Expr) =
-            let args =
-                args
-                |> List.map (fun (n, t) -> ProvidedParameter(n, t))
-            let cnstr =
-                ProvidedConstructor(args, funcGate body)
-            cnstr
-
-        let newProperty (name : string, typ : Type) (body : Expr -> Expr) =
-            let prop = ProvidedProperty(name, typ, fun args -> let this = args.[0] in bodyGate(body this))
-            prop
-
-        let newStaticProperty (name : string, typ : Type) (body : Expr) =
-            let prop = ProvidedProperty(name, typ, getterCode = (fun _ -> bodyGate body), isStatic = true)
-            prop
-
-        let newMethod (name : string, typ : Type) (args : (string * Type) list) (body : Expr list -> Expr) =
-            let args =
-                args
-                |> List.map (fun (n, t) -> ProvidedParameter(n, t))
-            let m = ProvidedMethod(name, args, typ, funcGate body)
-            m
-
-        let newStaticMethod (name : string, typ : Type) (args : (string * Type) list) (body : Expr list -> Expr) =
-            let args =
-                args
-                |> List.map (fun (n, t) -> ProvidedParameter(n, t))
-            let m = ProvidedMethod(name, args, typ, funcGate body, isStatic = true)
-            m
-
-        { new IProvidedDataBuilder with
-            member __.NewType(name, baseType) = newType name baseType
-            member __.NewConstructor(args, body) = newConstructor args body
-            member __.NewProperty(name, typ, body) = newProperty (name, typ) body
-            member __.NewStaticProperty(name, typ, body) = newStaticProperty (name, typ) body
-            member __.NewMethod(name, typ, args, body) = newMethod (name, typ) args body
-            member __.NewStaticMethod(name, typ, args, body) = newStaticMethod (name, typ) args body
-        }
+    open SturmovikMission.Expr.ExprExtensions
 
     [<AutoOpen>]
     module AstValueWrapperTypeBuildingHelpers =
@@ -849,13 +698,13 @@ type MissionTypes(config: TypeProviderConfig) as this =
 
         let invokeImpl =
             if config.IsHostedExecution then
-                Internal.InvokeCodeImplementation.AsProvided
+                InvokeCodeImplementation.AsProvided
             else
-                Internal.InvokeCodeImplementation.FromAssembly
+                InvokeCodeImplementation.FromAssembly
 
         logInfo(sprintf "Provider invoked with sample '%s' using invokeCodeImpl '%s'" sample (string invokeImpl))
 
-        let pdb = Internal.mkProvidedDataBuilder invokeImpl
+        let pdb = IProvidedDataBuilder.CreateWithEmptyShells invokeImpl
         let ty = new ProvidedTypeDefinition(asm, ns, typeName, Some(typeof<obj>), isErased=false)
         // The types corresponding to the ValueTypes extracted from the sample file
         let getProvidedType, cache = Internal.mkProvidedTypeBuilder logInfo pdb

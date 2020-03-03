@@ -27,6 +27,8 @@
       <Paket>True</Paket>
       <Link>paket-files/ProvidedTypes.fs</Link>
     </Compile>
+    <Compile Include="ProvidedDataBuilder.fs" />
+    <Compile Include="Expr.fs" />
     <Compile Include="UniqueNames.fs" />
     <Compile Include="FileWithTime.fs" />
     <Compile Include="Logging.fs" />
