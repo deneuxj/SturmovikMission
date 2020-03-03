@@ -25,8 +25,7 @@ module internal ExprExtensions =
         /// Convert a raw expression to a typed expression with a given target type.
         /// This is useful to insert values with generated types into quotation holes using their base type.
         static member Convert<'TargetType>(e : Expr) =
-            let targetType = typeof<'TargetType>
-            Expr.Coerce(e, targetType)
+            Expr.Coerce(e, typeof<'TargetType>)
             |> Expr.Cast<'TargetType>
 
         /// Convert a raw expression representing an IEnumerable<> to an IEnumerable<'TargetType>
