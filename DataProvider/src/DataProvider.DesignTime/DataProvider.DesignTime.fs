@@ -196,9 +196,10 @@ module internal Internal =
         
             member this.NewProperty(name, typ, body : Expr<Ast.Value> -> Expr) =
                 let body this =
-                    let this =
-                        <@ (%%this : AstValueWrapper).Wrapped @>
-                    body this
+                    let wrapper = Expr.Convert<AstValueWrapper>(this)
+                    let value =
+                        <@ (%wrapper).Wrapped @>
+                    body value
                 this.NewProperty(name, typ, body)
         
             member this.NewMethod(name, typ, args, body : Expr<Ast.Value> -> Expr list -> Expr) =
@@ -207,9 +208,9 @@ module internal Internal =
                     | [] ->
                         failwithf "Missing 'this' argument to instance-bound method '%s'" name
                     | that :: args ->
-                        let wrapper = Expr.Coerce(that, typeof<AstValueWrapper>)
+                        let wrapper = Expr.Convert<AstValueWrapper>(that)
                         let value =
-                            <@ (%%wrapper : AstValueWrapper).Wrapped @>
+                            <@ (%wrapper).Wrapped @>
                         body value args
                 this.NewMethod(name, typ, args, body)
 
