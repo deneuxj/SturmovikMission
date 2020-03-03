@@ -54,4 +54,3 @@ module internal ExprExtensions =
                     e
                 ]
             )
-            |> Expr.Cast<Map<'Key, 'TargetType>>
