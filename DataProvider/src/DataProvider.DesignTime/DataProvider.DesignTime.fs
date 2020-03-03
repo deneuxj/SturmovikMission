@@ -30,7 +30,12 @@ open SturmovikMission.DataProvider
 
 module internal Internal =
 
+    type ReflectionAccess =
+        static member ListMap<'SourceItemType, 'TargetItemType>(f : System.Func<'SourceItemType, 'TargetItemType>, xs : 'SourceItemType list) : 'TargetItemType list =
+            xs |> List.map f.Invoke
+
     type Expr with
+
         /// Convert a raw expression to a typed expression with a given target type.
         /// This is useful to insert values with generated types into quotation holes using their base type.
         static member Convert<'TargetType>(e : Expr) =
@@ -45,24 +50,32 @@ module internal Internal =
 
         static member ConvertList<'TargetType>(e : Expr) =
             let sourceItemType =
-                if e.Type.IsGenericType && e.Type.GetGenericTypeDefinition().FullName = typedefof<_ list>.FullName then
+                if e.Type.IsGenericType && e.Type.GetGenericTypeDefinition() = typedefof<_ list> then
                     e.Type.GenericTypeArguments.[0]
                 else
                     invalidArg "e" <| sprintf "source type '%s' is not a list" (e.Type.FullName)
             let targetItemType = typeof<'TargetType>
             let sourceType = e.Type
+            // func (x : sourceItemType) -> x :> 'TargetType
             let convItem =
                 let lamVar = Quotations.Var("x", sourceItemType)
                 Expr.Lambda(lamVar, Expr.Coerce(Expr.Var lamVar, targetItemType))
             let auxVar = Quotations.Var("aux", sourceType)
+            // aux |> List.map convItem
             let convList =
                 let inner =
-                    Expr.Application(
-                        <@@ List.map @@>,
-                        convItem)
+                    // List.map<sourceType, 'TargetType list>
+                    let miListMap =
+                        let t = typeof<ReflectionAccess>
+                        let bindingFlags = Reflection.BindingFlags.NonPublic ||| Reflection.BindingFlags.Static
+                        t.GetMethod("ListMap", bindingFlags).MakeGenericMethod(sourceType, typeof<'TargetType list>)
+                    Expr.Call(
+                        miListMap,
+                        [convItem])
                 Expr.Application(
                     inner,
                     Expr.Var auxVar)
+            // let aux : sourceType = e in convList
             Expr.Let(auxVar, e, convList)
             |> Expr.Cast<'TargetType list>
 
