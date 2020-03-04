@@ -239,9 +239,10 @@ module internal Internal =
                         ptyp.AddMember(pdb.NewMethod("SetItem", ptyp, [("Key", typeof<int>); ("Value", upcast ptyp1)], fun this args ->
                             match args with
                             | [key; value] ->
+                                let value = Expr.Convert<AstValueWrapper>(value)
                                 <@@
                                     let this = (%this : Ast.Value)
-                                    this.SetItem((%%key : int), (%%value : Ast.Value))
+                                    this.SetItem((%%key : int), (%value).Wrapped)
                                 @@>
                             | _ ->
                                 failwith "Unmatched list of parameters and arguments"))
