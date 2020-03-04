@@ -26,21 +26,32 @@ module internal ExprExtensions =
     open SturmovikMission.Util
 
     type Expr with
-        /// Convert a raw expression to a typed expression with a given target type.
+        /// Convert a raw expression of some generarted type to a typed expression with a given target type.
         /// This is useful to insert values with generated types into quotation holes using their base type.
+        /// The type of the expression must be assignable to 'TargetType
         static member Convert<'TargetType>(e : Expr) =
+            // Should work because it's an upcast
             Expr.Coerce(e, typeof<'TargetType>)
             |> Expr.Cast<'TargetType>
 
-        /// Convert a raw expression representing an IEnumerable<> to an IEnumerable<'TargetType>
+        /// Convert a raw expression representing an IEnumerable<some generated type> to an IEnumerable<'TargetType>
         /// This is useful to insert values which are sequences of some generated type into quotation holes using a sequence of their base type.
+        /// The type of items in the sequence in the expression must be assignable to 'TargetType
         static member ConvertEnumerable<'TargetType>(e : Expr) =
+            // Might work if cast in the CLR directly supports covariance.
             Expr.Coerce(e, typeof<IEnumerable<'TargetType>>)
             |> Expr.Cast<IEnumerable<'TargetType>>
 
         /// Convert a raw expression representing a Map<Key, some generated type SourceType> to a Map<Key, TargetType>
         /// This is useful to insert values which are sequences of some generated type into quotation holes using a sequence of their base type.
+        /// The type of values in the map in the expression must be assignable to 'TargetType
         static member ConvertMap<'Key, 'TargetType when 'Key : comparison>(e : Expr) =
+            // Here we can't rely on covariance. Map<> is an IEnumerable<KeyValuePair<,>>, and KeyValuePair is not covariant.
+            // We have no choice but to rebuild the map, after upcasting each value.
+            // Accessing the key and value of each KeyValuePair is a PITA because of generics:
+            // - Type.MakeGenericType doesn't work with generated types
+            // - ProvidedTypeBuilder.MakeGenericType generates calls suffixed with @inst which can't be found in the target assembly
+            // The last resort is to use reflection at runtime. It's a bit risky, as we can't catch bugs before they are out in the wild.
             let asEnum = Expr.Convert<System.Collections.IEnumerable>(e)
             <@
                 let asEnum = %asEnum
