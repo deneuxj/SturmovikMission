@@ -407,14 +407,11 @@ module internal Internal =
                         [("value", optTyp)],
                         fun this args ->
                             let value = args.[0]
-                            let value = Expr.Coerce(value, typeof<AstValueWrapper option>)
-                            //let isSome = <@ (%%value : #AstValueWrapper option).IsSome @> // Expr.PropertyGet(value, optTyp.GetProperty("IsSome"))
-                            //let someValue = Expr.Coerce(Expr.PropertyGet(value, optTyp.GetProperty("Value")), typeof<AstValueWrapper>)
+                            let value = Expr.ConvertOpt<AstValueWrapper>(value)
                             <@@
                                 let arg = 
-                                    match (%%value : AstValueWrapper option) with
-                                    | Some v -> Some v.Wrapped
-                                    | None -> None
+                                    %value
+                                    |> Option.map (fun w -> w.Wrapped)
                                 let this2 = (%this).SetItem(fieldName, arg)
                                 AstValueWrapper(this2)
                             @@>)

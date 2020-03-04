@@ -68,3 +68,22 @@ module internal ExprExtensions =
                 }
                 |> Map.ofSeq
             @> : Expr<Map<'Key, 'TargetType>>
+
+        /// Convert a raw expression representing an option of a generated type to a 'TargetType option
+        static member ConvertOpt<'TargetType>(e : Expr) =
+            // Same principle used in ConvertMap
+            let asObj = Expr.Convert<obj>(e)
+            <@
+                let asObj = %asObj
+                let optTyp = typedefof<_ option>
+                let isSome =
+                    let propKey = optTyp.GetProperty("IsSome")
+                    fun (opt : obj) -> unbox<bool>(propKey.GetValue(opt))
+                let getValue =
+                    let propKey = optTyp.GetProperty("Value")
+                    fun (opt : obj) -> propKey.GetValue(opt) :?> 'TargetType
+                if isSome asObj then
+                    Some(getValue asObj)
+                else
+                    None
+            @>
