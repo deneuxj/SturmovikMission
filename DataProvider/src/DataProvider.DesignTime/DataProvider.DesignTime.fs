@@ -228,7 +228,7 @@ module internal Internal =
                             let m = Expr.ConvertMap<int, AstValueWrapper> args.[0]
                             <@
                                 let m =
-                                    (%%m)
+                                    (%m)
                                     |> Map.map (fun _ (wrapper : AstValueWrapper) -> wrapper.Wrapped)
                                 Ast.Value.Mapping(Map.toList m)
                             @>))

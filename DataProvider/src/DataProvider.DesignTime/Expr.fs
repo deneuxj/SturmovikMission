@@ -25,10 +25,6 @@ module internal ExprExtensions =
     open ProviderImplementation.ProvidedTypes
     open SturmovikMission.Util
 
-    type ReflectionAccess with
-        static member MiMapMap(tk, t1, t2) =
-            ProvidedTypeBuilder.MakeGenericMethod(ReflectionAccess.GetStaticMethod("MapMap"), [tk; t1; t2])
-
     type Expr with
         /// Convert a raw expression to a typed expression with a given target type.
         /// This is useful to insert values with generated types into quotation holes using their base type.
@@ -45,12 +41,19 @@ module internal ExprExtensions =
         /// Convert a raw expression representing a Map<Key, some generated type SourceType> to a Map<Key, TargetType>
         /// This is useful to insert values which are sequences of some generated type into quotation holes using a sequence of their base type.
         static member ConvertMap<'Key, 'TargetType when 'Key : comparison>(e : Expr) =
-            let sourceItemType = e.Type.GetGenericArguments().[1]
-            let miMap = ReflectionAccess.MiMapMap(typeof<'Key>, sourceItemType, typeof<'TargetType>)
-            Expr.CallUnchecked(
-                miMap,
-                [
-                    let xVar = Quotations.Var("x", sourceItemType) in Expr.Lambda(xVar, Expr.Coerce(Expr.Var xVar, typeof<'TargetType>));
-                    e
-                ]
-            )
+            let asEnum = Expr.Convert<System.Collections.IEnumerable>(e)
+            <@
+                let asEnum = %asEnum
+                let kvpTyp = typedefof<KeyValuePair<_, _>>
+                let getKey =
+                    let propKey = kvpTyp.GetProperty("Key")
+                    fun (kvp : obj) -> propKey.GetValue(kvp) :?> 'Key
+                let getValue =
+                    let propKey = kvpTyp.GetProperty("Value")
+                    fun (kvp : obj) -> propKey.GetValue(kvp) :?> 'TargetType
+                seq {
+                    for kvp in asEnum do
+                        yield getKey kvp, getValue kvp
+                }
+                |> Map.ofSeq
+            @> : Expr<Map<'Key, 'TargetType>>
