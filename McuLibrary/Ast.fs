@@ -80,44 +80,92 @@ let (|NameOfGroundType|_|) x =
 
 let private valueTypeToExprCache = new Dictionary<ValueType, Quotations.Expr<ValueType>>(HashIdentity.Structural)
 
-let rec buildExprFromValueType expr =
-    match expr with
-    | Boolean -> <@ Boolean @>
-    | Integer -> <@ Integer @>
-    | String -> <@ String @>
-    | Float  -> <@ Float @>
-    | Date -> <@ Date @>
-    | IntVector -> <@ IntVector @>
-    | Mapping vt -> <@ Mapping %(getExprOfValueType vt) @>
-    | List vt -> <@ List %(getExprOfValueType vt) @>
-    | Pair (p1, p2) -> <@ Pair(%(getExprOfValueType p1), %(getExprOfValueType p2)) @>
-    | Triplet (p1, p2, p3) -> <@ Triplet(%(getExprOfValueType p1), %(getExprOfValueType p2), %(getExprOfValueType p3)) @>
-    | FloatPair -> <@ FloatPair @>
-    | Composite defs ->
-        let mapping = Quotations.Var("mapping", typeof<Map<string, ValueType * MinMultiplicity * MaxMultiplicity>>, isMutable=true)
-        let mappingV =
-            Quotations.Expr.Var mapping
-            |> Quotations.Expr.Cast<Map<_, _>>
-        let buildMapping =
-            defs
-            |> Map.toList
-            |> List.map (fun (name, (t, m, M)) ->
-                let vt = getExprOfValueType t
-                let m = m.ToExpr()
-                let M = M.ToExpr()
-                Quotations.Expr.VarSet(mapping, <@@ Map.add name (%vt, %m, %M) (%mappingV) @@>)
-                |> Quotations.Expr.Cast<unit>)
-            |> List.fold (fun e1 e2 -> <@ %e2;%e1 @>) <@ ignore() @>
-            |> fun e ->
-                Quotations.Expr.Let(mapping, <@@ Map.empty : Map<string, ValueType * MinMultiplicity * MaxMultiplicity> @@>, e)
-        let defs =
-            <@
-                (%%buildMapping : unit)
-                %mappingV
-            @>
-        <@ Composite %defs @>
+let buildExprFromValueType expr =
+    let mutable idx = 0
+    let newVar() =
+        idx <- idx + 1
+        Quotations.Var(sprintf "_%d" idx, typeof<ValueType>)
+    let getFinalVar : (Quotations.Var * Quotations.Expr<ValueType>)[] -> Quotations.Expr = Array.last >> fst >> Quotations.Expr.Var
+    let rec mkVarsAndDefs typ =
+        [|
+            match typ with
+            | Boolean -> yield newVar(), <@ Boolean @>
+            | Integer -> yield newVar(), <@ Integer @>
+            | String -> yield newVar(), <@ String @>
+            | Float  -> yield newVar(), <@ Float @>
+            | Date -> yield newVar(), <@ Date @>
+            | IntVector -> yield newVar(), <@ IntVector @>
+            | Mapping vt ->
+                let before = mkVarsAndDefs vt
+                let v = getFinalVar before
+                yield! before
+                yield newVar(), <@ Mapping %%v @>
+            | List vt ->
+                let before = mkVarsAndDefs vt
+                let v = getFinalVar before
+                yield! before
+                yield newVar(), <@ List %%v @>
+            | Pair (p1, p2) ->
+                let before1 = mkVarsAndDefs p1
+                let v1 = getFinalVar before1
+                let before2 = mkVarsAndDefs p2
+                let v2 = getFinalVar before2
+                yield! before1
+                yield! before2
+                yield newVar(), <@ Pair(%%v1, %%v2) @>
+            | Triplet (p1, p2, p3) ->
+                let before1 = mkVarsAndDefs p1
+                let v1 = getFinalVar before1
+                let before2 = mkVarsAndDefs p2
+                let v2 = getFinalVar before2
+                let before3 = mkVarsAndDefs p3
+                let v3 = getFinalVar before2
+                yield! before1
+                yield! before2
+                yield! before3
+                yield newVar(), <@ Triplet(%%v1, %%v2, %%v3) @>
+            | FloatPair ->
+                yield newVar(), <@ FloatPair @>
+            | Composite components when components.IsEmpty ->
+                yield newVar(), <@ Composite Map.empty @>
+            | Composite components ->
+                let mutable componentVars = Map.empty
+                let components = Map.toList components
+                for (name, (t, _, _)) in components do
+                    let before = mkVarsAndDefs t
+                    let v = getFinalVar before
+                    componentVars <- componentVars.Add(name, v)
+                    yield! before
+                let mapping = Quotations.Var("mapping", typeof<Map<string, ValueType * MinMultiplicity * MaxMultiplicity>>, isMutable=true)
+                let mappingV =
+                    Quotations.Expr.Var mapping
+                    |> Quotations.Expr.Cast<Map<_, _>>
+                let buildMapping =
+                    components
+                    |> List.map (fun (name, (_, m, M)) ->
+                        let vt = componentVars.[name]
+                        let m = m.ToExpr()
+                        let M = M.ToExpr()
+                        Quotations.Expr.VarSet(mapping, <@@ Map.add name (%%vt, %m, %M) (%mappingV) @@>)
+                        |> Quotations.Expr.Cast<unit>)
+                    |> List.fold (fun e1 e2 -> <@ %e2;%e1 @>) <@ ignore() @>
+                    |> fun e ->
+                        Quotations.Expr.Let(mapping, <@@ Map.empty : Map<string, ValueType * MinMultiplicity * MaxMultiplicity> @@>, e)
+                let expr =
+                    <@
+                        (%%buildMapping : unit)
+                        %mappingV
+                    @>
+                yield newVar(), <@ Composite %expr @>
+        |]
+    let whole = mkVarsAndDefs expr
+    let v = getFinalVar whole
+    (whole, v) ||> Array.foldBack (fun (v, defn) e ->
+        Quotations.Expr.Let(v, defn, e)
+    )
+    |> Quotations.Expr.Cast<ValueType>
 
-and getExprOfValueType expr =
+let getExprOfValueType expr =
     cached valueTypeToExprCache buildExprFromValueType expr
 
 type ValueType
