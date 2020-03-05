@@ -256,37 +256,6 @@ with
         | IntVector _ -> IntVector []
         | _ -> invalidOp "Not a Mapping, Set or IntVector"
 
-    member this.ToExpr() =
-        match this with
-        | Boolean x -> <@ Boolean x @>
-        | Integer x -> <@ Integer x @>
-        | Float x -> <@ Float x @>
-        | FloatPair(x, y) -> <@ FloatPair(x, y) @>
-        | String x -> <@ String x @>
-        | Date(x, y, z) -> <@ Date(x, y, z) @>
-        | IntVector x ->
-            x
-            |> List.rev
-            |> List.fold (fun expr n -> <@ n :: %expr @>) <@ [] @>
-            |> fun xs -> <@ IntVector %xs @>
-        | Mapping x ->
-            x
-            |> List.fold (fun expr (n, value) -> <@ (n, %(value.ToExpr())) :: %expr @>) <@ [] @>
-            |> fun xs -> <@ Mapping %xs @>
-        | List x ->
-            x
-            |> List.fold (fun expr value -> <@ %(value.ToExpr()) :: %expr @>) <@ [] @>
-            |> fun xs -> <@ List %xs @>
-        | Pair(x1, x2) ->
-            <@ Pair(%x1.ToExpr(), %x2.ToExpr()) @>
-        | Triplet(x1, x2, x3) ->
-            <@ Triplet(%x1.ToExpr(), %x2.ToExpr(), %x3.ToExpr()) @>
-        | Composite fields ->
-            fields
-            |> List.rev
-            |> List.fold (fun expr (name, value) -> <@ (name, %value.ToExpr()) :: %expr @>) <@ [] @>
-            |> fun xs -> <@ Composite %xs @>
-
 let rec defaultExprValue (typ : ValueType) =
     match typ with
     | ValueType.Boolean -> <@ Boolean false @>
@@ -422,23 +391,4 @@ type Data with
                 else
                     []
 
-    member this.ToExpr() =
-        match this with
-        | Leaf(name, value) ->
-            let e = value.ToExpr()
-            <@ Leaf(name, %e) @>
-        | Group(data) ->
-            let subs =
-                data.Data
-                |> List.rev
-                |> List.fold(fun expr data -> <@ %(data.ToExpr()) :: %expr @>) <@ [] @>
-            let name = data.Name
-            let index = data.Index
-            let desc = data.Description
-            <@ Group
-                { Name = name
-                  Index = index
-                  Description = desc
-                  Data = %subs
-                } @>
 
