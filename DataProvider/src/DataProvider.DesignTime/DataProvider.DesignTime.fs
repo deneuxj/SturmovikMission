@@ -294,7 +294,13 @@ module internal Internal =
             let propTyp = ProvidedTypeBuilder.MakeGenericType(typedefof<_*_>, [ptyp1; ptyp2])
             ptyp.AddMember(pdb.NewProperty("Value", propTyp, fun this -> <@@ (%this : Ast.Value).GetPair() @@>))
             // Constructor
-            ptyp.AddMember(pdb.NewConstructor([("Value", propTyp)], fun args -> let value = args.[0] in <@ Ast.Value.Pair (%%value : Ast.Value * Ast.Value) @>))
+            ptyp.AddMember(
+                pdb.NewConstructor(
+                    [("Item1", ptyp1 :> Type); ("Item2", upcast ptyp2)],
+                    fun args ->
+                        let item1 = Expr.Convert<AstValueWrapper>(args.[0])
+                        let item2 = Expr.Convert<AstValueWrapper>(args.[1])
+                        <@ Ast.Value.Pair ((%item1).Wrapped, (%item2).Wrapped) @>))
             // Result
             ptyp
 
@@ -317,7 +323,14 @@ module internal Internal =
             // Value getter
             ptyp.AddMember(pdb.NewProperty("Value", propTyp, fun this -> <@@ (%this : Ast.Value).GetTriplet() @@>))
             // Constructor
-            ptyp.AddMember(pdb.NewConstructor([("Value", propTyp)], fun args -> let value = args.[0] in <@ Ast.Value.Triplet (%%value : Ast.Value * Ast.Value * Ast.Value) @>))
+            ptyp.AddMember(
+                pdb.NewConstructor(
+                    [("Item1", ptyp1 :> Type); ("Item2", upcast ptyp2); ("Item3", upcast ptyp3)],
+                    fun args ->
+                        let item1 = Expr.Convert<AstValueWrapper>(args.[0])
+                        let item2 = Expr.Convert<AstValueWrapper>(args.[1])
+                        let item3 = Expr.Convert<AstValueWrapper>(args.[2])
+                        <@ Ast.Value.Triplet ((%item1).Wrapped, (%item2).Wrapped, (%item3).Wrapped) @>))
             // Result
             ptyp
 
