@@ -781,7 +781,8 @@ type MissionTypes(config: TypeProviderConfig) as this =
         //asm.AddNestedTypes(topTypeDefs, [ty.Name])
         //// Add ground types
         //asm.AddNestedTypes(groundTypeDefs, [ty.Name])
-        System.Diagnostics.Debugger.Launch() |> ignore
+        if not(String.IsNullOrWhiteSpace(System.Environment.GetEnvironmentVariable("TP_DEBUG"))) then
+            System.Diagnostics.Debugger.Launch() |> ignore
         ////Add complex nested types
         //let nested =
         //    cache
