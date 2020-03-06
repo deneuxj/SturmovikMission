@@ -36,18 +36,34 @@ module internal Internal =
     [<AutoOpen>]
     module AstValueWrapperTypeBuildingHelpers =
         type IProvidedDataBuilder with
-            member this.NewWrapper(name) = this.NewType(name, typeof<AstValueWrapper>)
-        
-            member this.NewConstructor(args, body) =
-                let constructor = this.NewConstructor(args, fun _ -> Expr.Value(()))
-                let body args =
-                    let value = body (List.tail args)
-                    <@@ AstValueWrapper((%value : Ast.Value)) @@>
+            /// Create a type inheriting from AstValueWrapper, with a constructor taking an Ast.Value
+            member this.NewWrapper(name) =
+                let ptyp = this.NewType(name, typeof<AstValueWrapper>)
+                let constructor = this.NewConstructor(["value", typeof<Ast.Value>], fun _ -> <@@ () @@>)
                 constructor.BaseConstructorCall <-
-                    fun args ->
-                        typeof<AstValueWrapper>.GetConstructor([| typeof<Ast.Value> |]), [body args]
+                    function
+                    | this :: value :: _ ->
+                        let cinfo = typeof<AstValueWrapper>.GetConstructor [| typeof<Ast.Value> |]
+                        let args = [value]
+                        cinfo, args
+                    | _ -> failwith "Wrong number of arguments passed to AstValueWrapper constructor"
+                ptyp.AddMember(constructor)
+                ptyp
+
+            /// Create a named constructor, i.e. a public static method to create a new instance
+            member this.NewNamedConstructor(name, ptyp : ProvidedTypeDefinition, args, body) =
+                let constructor =
+                    this.NewStaticMethod(name, ptyp, args,
+                        fun args ->
+                            let value : Expr<Ast.Value> = body args
+                            let constructor = ptyp.GetConstructor([| typeof<Ast.ValueType> |])
+                            Expr.NewObject (
+                                constructor,
+                                [value]
+                            )
+                    )
                 constructor
-        
+
             member this.NewProperty(name, typ, body : Expr<Ast.Value> -> Expr) =
                 let body this =
                     let wrapper = Expr.Convert<AstValueWrapper>(this)
@@ -55,7 +71,7 @@ module internal Internal =
                         <@ (%wrapper).Wrapped @>
                     body value
                 this.NewProperty(name, typ, body)
-        
+
             member this.NewMethod(name, typ, args, body : Expr<Ast.Value> -> Expr list -> Expr) =
                 let body args =
                     match args with
@@ -109,37 +125,37 @@ module internal Internal =
         let ptypBoolean =
             let ptyp = pdb.NewWrapper("Boolean")
             ptyp.AddMember(pdb.NewProperty("Value", typeof<bool>, fun this -> <@@ (%this : Ast.Value).GetBool() @@>))
-            ptyp.AddMember(pdb.NewConstructor([("Value", typeof<bool>)], fun args -> let value = args.[0] in <@ Ast.Value.Boolean (%%value : bool) @>))
+            ptyp.AddMember(pdb.NewNamedConstructor("FromBool", ptyp, [("Value", typeof<bool>)], fun args -> let value = args.[0] in <@ Ast.Value.Boolean (%%value : bool) @>))
             ptyp
 
         let ptypFloat =
             let ptyp = pdb.NewWrapper("Float")
             ptyp.AddMember(pdb.NewProperty("Value", typeof<float>, fun this -> <@@ (%this : Ast.Value).GetFloat() @@>))
-            ptyp.AddMember(pdb.NewConstructor([("Value", typeof<float>)], fun args -> let value = args.[0] in <@ Ast.Value.Float (%%value : float) @>))
+            ptyp.AddMember(pdb.NewNamedConstructor("FromFloat", ptyp, [("Value", typeof<float>)], fun args -> let value = args.[0] in <@ Ast.Value.Float (%%value : float) @>))
             ptyp
 
         let ptypFloatPair =
             let ptyp = pdb.NewWrapper("FloatPair")
             ptyp.AddMember(pdb.NewProperty("Value", typeof<float * float>, fun this -> <@@ (%this : Ast.Value).GetFloatPair() @@>))
-            ptyp.AddMember(pdb.NewConstructor([("Value", typeof<float * float>)], fun args -> let value = args.[0] in <@ let x, y = (%%value : float * float) in Ast.Value.FloatPair(x, y) @>))
+            ptyp.AddMember(pdb.NewNamedConstructor("FromPair", ptyp, [("Value", typeof<float * float>)], fun args -> let value = args.[0] in <@ let x, y = (%%value : float * float) in Ast.Value.FloatPair(x, y) @>))
             ptyp
 
         let ptypInteger =
             let ptyp = pdb.NewWrapper("Integer")
             ptyp.AddMember(pdb.NewProperty("Value", typeof<int>, fun this -> <@@ (%this : Ast.Value).GetInteger() @@>))
-            ptyp.AddMember(pdb.NewConstructor([("Value", typeof<int>)], fun args -> let value = args.[0] in <@ Ast.Value.Integer (%%value : int) @>))
+            ptyp.AddMember(pdb.NewNamedConstructor("FromInt", ptyp, [("Value", typeof<int>)], fun args -> let value = args.[0] in <@ Ast.Value.Integer (%%value : int) @>))
             ptyp
 
         let ptypString =
             let ptyp = pdb.NewWrapper("String")
             ptyp.AddMember(pdb.NewProperty("Value", typeof<string>, fun this -> <@@ (%this : Ast.Value).GetString() @@>))
-            ptyp.AddMember(pdb.NewConstructor([("Value", typeof<string>)], fun args -> let value = args.[0] in <@ Ast.Value.String (%%value : string) @>))
+            ptyp.AddMember(pdb.NewNamedConstructor("FromString", ptyp, [("Value", typeof<string>)], fun args -> let value = args.[0] in <@ Ast.Value.String (%%value : string) @>))
             ptyp
 
         let ptypIntVector =
             let ptyp = pdb.NewWrapper("VectorOfIntegers")
             ptyp.AddMember(pdb.NewProperty("Value", typeof<int list>, fun this -> <@@ (%this : Ast.Value).GetIntVector() @@>))
-            ptyp.AddMember(pdb.NewConstructor([("Value", typeof<int list>)], fun args -> let value = args.[0] in <@ Ast.Value.IntVector (%%value : int list) @>))
+            ptyp.AddMember(pdb.NewNamedConstructor("FromList", ptyp, [("Value", typeof<int list>)], fun args -> let value = args.[0] in <@ Ast.Value.IntVector (%%value : int list) @>))
             ptyp
 
         let ptypDate =
@@ -154,7 +170,9 @@ module internal Internal =
                 let e = <@@ (%this : Ast.Value).GetDate() @@>
                 <@@ let day, _, _ = (%%e : int * int * int) in day @@>))
             ptyp.AddMember(
-                pdb.NewConstructor(
+                pdb.NewNamedConstructor(
+                    "FromDate",
+                    ptyp,
                     [("Day", typeof<int>); ("Month", typeof<int>); ("Year", typeof<int>)],
                     function
                     | [day; month; year] ->
@@ -199,10 +217,6 @@ module internal Internal =
                             let fieldKind, _, _ = field.Value
                             let subpTyp = getProvidedType { Name = fieldName; Kind = fieldKind; Parents = parents }
                             addComplexNestedType(ptyp, subpTyp, fieldKind)
-                        // Constructor
-                        match construct parents (fields, ptyp) with
-                        | None -> ()
-                        | Some cstr -> ptyp.AddMemberDelayed(fun() -> cstr)
                         // Getters
                         ptyp.AddMembersDelayed(fun() -> getters parents fields)
                         // Setters
@@ -225,7 +239,8 @@ module internal Internal =
                         let ptyp = pdb.NewWrapper(name)
                         addComplexNestedType(ptyp, ptyp1, itemTyp)
                         // Constructor from map
-                        ptyp.AddMember(pdb.NewConstructor([("map", ProvidedTypeBuilder.MakeGenericType(typedefof<Map<_, _>>, [typeof<int>; ptyp1]))], fun args ->
+                        ptyp.AddMember(
+                            pdb.NewNamedConstructor("FromMap", ptyp, [("map", ProvidedTypeBuilder.MakeGenericType(typedefof<Map<_, _>>, [typeof<int>; ptyp1]))], fun args ->
                             let m = Expr.ConvertMap<int, AstValueWrapper> args.[0]
                             <@
                                 let m =
@@ -272,7 +287,9 @@ module internal Internal =
                         ptyp.AddMember(pdb.NewProperty("Value", propTyp, fun this -> <@@ (%this : Ast.Value).GetList() @@>))
                         // constructor with value
                         ptyp.AddMember(
-                            pdb.NewConstructor(
+                            pdb.NewNamedConstructor(
+                                "FromList",
+                                ptyp,
                                 ["items", propTyp],
                                 fun args ->
                                     let items = Expr.ConvertEnumerable<AstValueWrapper> args.[0]
@@ -288,7 +305,7 @@ module internal Internal =
                         ptyp
                 // Add a default constructor
                 let kind = typId.Kind.ToExpr()
-                ptyp.AddMember(pdb.NewConstructor([], fun _ -> <@ Ast.defaultValue %kind @>))
+                ptyp.AddMember(pdb.NewNamedConstructor("Default", ptyp, [], fun _ -> <@ Ast.defaultValue %kind @>))
                 ptyp
             finally
                 logInfo <| sprintf "Done building provided type for %s" typId.Name
@@ -308,7 +325,9 @@ module internal Internal =
             ptyp.AddMember(pdb.NewProperty("Value", propTyp, fun this -> <@@ (%this : Ast.Value).GetPair() @@>))
             // Constructor
             ptyp.AddMember(
-                pdb.NewConstructor(
+                pdb.NewNamedConstructor(
+                    "Create",
+                    ptyp,
                     [("Item1", ptyp1 :> Type); ("Item2", upcast ptyp2)],
                     fun args ->
                         let item1 = Expr.Convert<AstValueWrapper>(args.[0])
@@ -337,7 +356,9 @@ module internal Internal =
             ptyp.AddMember(pdb.NewProperty("Value", propTyp, fun this -> <@@ (%this : Ast.Value).GetTriplet() @@>))
             // Constructor
             ptyp.AddMember(
-                pdb.NewConstructor(
+                pdb.NewNamedConstructor(
+                    "Create",
+                    ptyp,
                     [("Item1", ptyp1 :> Type); ("Item2", upcast ptyp2); ("Item3", upcast ptyp3)],
                     fun args ->
                         let item1 = Expr.Convert<AstValueWrapper>(args.[0])
@@ -478,50 +499,6 @@ module internal Internal =
                         |> addXmlDoc """<summary>Create a new mutable instance of an MCU.</summary>"""
                 | None -> ()
             ]
-
-        // Constructor. Its arguments are the fields with multiplicity exactly one.
-        and construct parents (fields, ptyp) =
-            let args =
-                fields
-                |> Seq.choose(fun kvp ->
-                    let fieldName = kvp.Key
-                    let (def, minMult, maxMult) = kvp.Value
-                    let fieldType =
-                        getProvidedType { Name = fieldName; Kind = def; Parents = parents }
-                    match (minMult, maxMult) with
-                    | Ast.MinMultiplicity.MinOne, Ast.MaxMultiplicity.MaxOne ->
-                        Some (fieldName, fieldType :> Type)
-                    | Ast.MinMultiplicity.Zero, Ast.MaxOne ->
-                        None
-                    | _, Ast.MaxMultiplicity.Multiple ->
-                        None)
-                |> List.ofSeq
-            match args with
-            | [] ->
-                None
-            | args when args.Length < 8 ->
-                let argNames =
-                    args
-                    |> Seq.map fst
-                    |> Seq.fold (fun expr name -> <@ name :: %expr@>) <@ [] @>
-                let body (args : Expr list) =
-                    let args =
-                        args
-                        |> List.fold (fun expr arg ->
-                            let wrapper = Expr.Convert<AstValueWrapper>(arg)
-                            <@
-                                let wrapped = (%wrapper).Wrapped
-                                let tail = %expr
-                                let res = wrapped :: tail
-                                res
-                            @>) <@ [] @>
-                    <@
-                        Ast.Value.Composite(List.zip %argNames %args)
-                    @>
-                pdb.NewConstructor(args, body)
-                |> Some
-            | _ ->
-                None
 
         // static method to create a parser
         and staticParser (valueType : Ast.ValueType, name, ptyp) =
