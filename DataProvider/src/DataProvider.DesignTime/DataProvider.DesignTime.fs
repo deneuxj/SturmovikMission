@@ -561,41 +561,30 @@ module internal Internal =
         logInfo "Started building the MCU list builder method"
         let valueTypeOfName =
             namedValueTypes
-            |> List.fold (fun expr (name, valueType, _) ->
-                <@
-                    Map.add name %(valueType.ToExpr()) %expr
-                @>
-                ) <@ Map.empty @>
-        let names =
-            namedValueTypes
-            |> List.map (fun (name, _, _) -> name)
-            |> List.fold (fun expr name ->
-                <@ name :: %expr @>) <@ [] @>
+            |> Seq.map (fun (name, vt, _) -> name, vt)
+            |> Map.ofSeq
+            |> Ast.ValueType.MapToExpr
 
         let method =
             pdb.NewMethod("CreateMcuList", typeof<Mcu.McuBase list>, [], fun (args : Expr list) ->
-                let this = args.[0]
+                let this = Expr.Convert<GroupMembers>(args.[0])
                 <@@
-                let this = (%%this : GroupMembers)
-                let valueTypeOfName = %valueTypeOfName
-                let mcuMakerOfName =
-                    %names
-                    |> List.map (fun name ->
-                        let valueType = valueTypeOfName.[name]
-                        (name, McuFactory.tryMakeMcu(name, valueType))
+                    let this = %this
+                    let valueTypeOfName = %valueTypeOfName
+                    let mcuMakerOfName =
+                        valueTypeOfName
+                        |> Map.map (fun name vt ->
+                            McuFactory.tryMakeMcu(name, vt))
+                    this.Items
+                    |> List.collect (fun data -> data.GetLeavesWithPath())
+                    |> List.choose (fun (path, name, value) ->
+                        match Map.tryFind name mcuMakerOfName with
+                        | Some(Some(make)) ->
+                            make(value, path)
+                            |> Some
+                        | _ -> // Cannot build an Mcu from that valueType
+                            None
                     )
-                    |> Map.ofList
-                this.Items
-                |> List.map (fun data -> data.GetLeavesWithPath())
-                |> List.concat
-                |> List.choose (fun (path, name, value) ->
-                    match Map.tryFind name mcuMakerOfName with
-                    | Some(Some(make)) ->
-                        make(value, path)
-                        |> Some
-                    | _ -> // Cannot build an Mcu from that valueType
-                        None
-                )
                 @@>
             )
 
