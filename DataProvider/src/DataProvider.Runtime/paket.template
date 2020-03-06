@@ -38,3 +38,4 @@ dependencies
 #    System.Text.Encoding.CodePages >= LOCKEDVERSION
 #  framework: netstandard2.0
 #    System.Text.Encoding.CodePages >= LOCKEDVERSION
+  FsPicker >= LOCKEDVERSION

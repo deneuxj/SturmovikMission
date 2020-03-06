@@ -614,24 +614,10 @@ module internal Internal =
             pdb.NewType("GroupData", typeof<GroupMembers>)
             |> addXmlDoc """Extraction of data from a mission or group file."""
         let valueTypeOfName =
-            let mumap = Quotations.Var("valueTypeWithName", typeof<Map<string, Ast.ValueType>>, true)
-            let mumapRef = Expr.Var mumap |> Expr.Cast<Map<string, Ast.ValueType>>
-            let init =
-                namedValueTypes
-                |> Seq.map (fun (name, vt, _) ->
-                    Expr.VarSet(mumap,
-                        <@
-                            let m = %mumapRef
-                            let vt = %vt.ToExpr()
-                            Map.add name vt m
-                        @>)
-                    |> Expr.Cast<unit>)
-                |> Seq.fold (fun e1 e2 -> <@ %e2 ; %e1 @>) <@ () @>
-            Expr.Let(
-                mumap,
-                <@ Map.empty : Map<string, Ast.ValueType> @>,
-                <@ %init ; %mumapRef @>)
-            |> Expr.Cast<Map<string, Ast.ValueType>>
+            namedValueTypes
+            |> Seq.map (fun (name, vt, _) -> name, vt)
+            |> Map.ofSeq
+            |> Ast.ValueType.MapToExpr
         // Constructor: From a list of AST nodes
         let constructFromList =
             let constructor =
