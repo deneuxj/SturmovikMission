@@ -60,7 +60,12 @@ module internal Internal =
                     fn <|
                         fun args ->
                             let value : Expr<Ast.Value> = body args
-                            let constructor = ptyp.GetConstructor([| typeof<Ast.ValueType> |])
+                            let constructor =
+                                ptyp.GetConstructors()
+                                |> Array.find(fun cinfo ->
+                                    match cinfo.GetParameters() with
+                                    | [| typ |] -> typ.ParameterType.FullName = typeof<Ast.Value>.FullName
+                                    | _ -> false)
                             Expr.NewObject (
                                 constructor,
                                 [value]
@@ -143,36 +148,42 @@ module internal Internal =
             let ptyp = pdb.NewWrapper("Boolean")
             ptyp.AddMember(pdb.NewProperty("Value", typeof<bool>, fun this -> <@@ (%this : Ast.Value).GetBool() @@>))
             ptyp.AddMember(pdb.NewConstructor([("Value", typeof<bool>)], fun args -> let value = args.[0] in <@ Ast.Value.Boolean (%%value : bool) @>))
+            ptyp.AddMember(pdb.NewNamedConstructor("Default", ptyp, [], fun _ -> <@ Ast.Value.Boolean false @>))
             ptyp
 
         let ptypFloat =
             let ptyp = pdb.NewWrapper("Float")
             ptyp.AddMember(pdb.NewProperty("Value", typeof<float>, fun this -> <@@ (%this : Ast.Value).GetFloat() @@>))
             ptyp.AddMember(pdb.NewConstructor([("Value", typeof<float>)], fun args -> let value = args.[0] in <@ Ast.Value.Float (%%value : float) @>))
+            //ptyp.AddMember(pdb.NewNamedConstructor("Default", ptyp, [], fun _ -> <@ Ast.Value.Float 0.0 @>))
             ptyp
 
         let ptypFloatPair =
             let ptyp = pdb.NewWrapper("FloatPair")
             ptyp.AddMember(pdb.NewProperty("Value", typeof<float * float>, fun this -> <@@ (%this : Ast.Value).GetFloatPair() @@>))
             ptyp.AddMember(pdb.NewConstructor([("Value", typeof<float * float>)], fun args -> let value = args.[0] in <@ let x, y = (%%value : float * float) in Ast.Value.FloatPair(x, y) @>))
+            //ptyp.AddMember(pdb.NewNamedConstructor("Default", ptyp, [], fun _ -> <@ Ast.Value.FloatPair(0.0, 0.0) @>))
             ptyp
 
         let ptypInteger =
             let ptyp = pdb.NewWrapper("Integer")
             ptyp.AddMember(pdb.NewProperty("Value", typeof<int>, fun this -> <@@ (%this : Ast.Value).GetInteger() @@>))
             ptyp.AddMember(pdb.NewConstructor([("Value", typeof<int>)], fun args -> let value = args.[0] in <@ Ast.Value.Integer (%%value : int) @>))
+            //ptyp.AddMember(pdb.NewNamedConstructor("Default", ptyp, [], fun _ -> <@ Ast.Value.Integer 0 @>))
             ptyp
 
         let ptypString =
             let ptyp = pdb.NewWrapper("String")
             ptyp.AddMember(pdb.NewProperty("Value", typeof<string>, fun this -> <@@ (%this : Ast.Value).GetString() @@>))
             ptyp.AddMember(pdb.NewConstructor([("Value", typeof<string>)], fun args -> let value = args.[0] in <@ Ast.Value.String (%%value : string) @>))
+            //ptyp.AddMember(pdb.NewNamedConstructor("Default", ptyp, [], fun _ -> <@ Ast.Value.String "" @>))
             ptyp
 
         let ptypIntVector =
             let ptyp = pdb.NewWrapper("VectorOfIntegers")
             ptyp.AddMember(pdb.NewProperty("Value", typeof<int list>, fun this -> <@@ (%this : Ast.Value).GetIntVector() @@>))
             ptyp.AddMember(pdb.NewConstructor([("Value", typeof<int list>)], fun args -> let value = args.[0] in <@ Ast.Value.IntVector (%%value : int list) @>))
+            //ptyp.AddMember(pdb.NewNamedConstructor("Default", ptyp, [], fun _ -> <@ Ast.Value.IntVector [] @>))
             ptyp
 
         let ptypDate =
@@ -714,6 +725,9 @@ type MissionTypes(config: TypeProviderConfig) as this =
     do assert (typeof<Parsing.Stream>.Assembly.GetName().Name = asm.GetName().Name)  
 
     let buildProvider (enableLogging : bool) (typeName : string, sample : string) =
+        if not(String.IsNullOrWhiteSpace(System.Environment.GetEnvironmentVariable("TP_DEBUG"))) then
+            System.Diagnostics.Debugger.Launch() |> ignore
+
         let asm = ProvidedAssembly()
         let logInfo, closeLog =
             if enableLogging then
@@ -790,23 +804,6 @@ type MissionTypes(config: TypeProviderConfig) as this =
             ]
         // Add the root type to provided assembly
         asm.AddTypes [ty]
-        //// Add complex top types
-        //asm.AddNestedTypes(topTypeDefs, [ty.Name])
-        //// Add ground types
-        //asm.AddNestedTypes(groundTypeDefs, [ty.Name])
-        if not(String.IsNullOrWhiteSpace(System.Environment.GetEnvironmentVariable("TP_DEBUG"))) then
-            System.Diagnostics.Debugger.Launch() |> ignore
-        ////Add complex nested types
-        //let nested =
-        //    cache
-        //    |> Seq.filter (fun kvp -> not kvp.Key.Parents.IsEmpty)
-        //    |> Seq.filter (fun kvp -> match kvp.Key.Kind with Internal.ComplexType -> true | _ -> false)
-        //    |> Seq.sortBy (fun kvp -> kvp.Key.Parents.Length)
-        //    |> Seq.groupBy (fun kvp -> ty.Name :: List.rev kvp.Key.Parents)
-        //    |> Seq.map (fun (enclosing, items) -> items |> Seq.map (fun kvp -> kvp.Value) |> List.ofSeq, enclosing)
-        //for defs, enclosing in nested do
-        //    asm.AddNestedTypes(defs, enclosing)
-        //System.Diagnostics.Debugger.Break()
         // Result
         ty, modifs, closeLog
 
