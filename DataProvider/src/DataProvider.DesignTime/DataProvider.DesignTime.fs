@@ -52,8 +52,12 @@ module internal Internal =
 
             /// Create a named constructor, i.e. a public static method to create a new instance
             member this.NewNamedConstructor(name, ptyp : ProvidedTypeDefinition, args, body) =
+                let fn =
+                    match args with
+                    | [] -> fun expr -> this.NewStaticProperty(name, ptyp, expr []) :> System.Reflection.MemberInfo
+                    | _ :: _ -> fun body -> this.NewStaticMethod(name, ptyp, args, body) :> System.Reflection.MemberInfo
                 let constructor =
-                    this.NewStaticMethod(name, ptyp, args,
+                    fn <|
                         fun args ->
                             let value : Expr<Ast.Value> = body args
                             let constructor = ptyp.GetConstructor([| typeof<Ast.ValueType> |])
@@ -61,7 +65,7 @@ module internal Internal =
                                 constructor,
                                 [value]
                             )
-                    )
+
                 constructor
 
             member this.NewProperty(name, typ, body : Expr<Ast.Value> -> Expr) =
