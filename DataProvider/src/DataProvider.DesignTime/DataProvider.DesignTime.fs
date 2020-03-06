@@ -690,7 +690,7 @@ module internal Internal =
 type MissionTypes(config: TypeProviderConfig) as this =
     inherit TypeProviderForNamespaces (config, assemblyReplacementMap=[("SturmovikMission.DataProvider.DesignTime", "SturmovikMission.DataProvider.Runtime")], addDefaultProbingLocation=true)
     
-    let asm = System.Reflection.Assembly.LoadFrom(config.RuntimeAssembly)
+    let asm = System.Reflection.Assembly.GetExecutingAssembly()
     let ns = "SturmovikMissionTypes"
 
     // check we contain a copy of runtime files, and are not referencing the runtime DLL
