@@ -31,6 +31,7 @@ open SturmovikMission.ProvidedDataBuilder
 
 module internal Internal =
     open SturmovikMission.Expr.ExprExtensions
+    open SturmovikMission.Expr.AstExtensions
 
     [<AutoOpen>]
     module AstValueWrapperTypeBuildingHelpers =

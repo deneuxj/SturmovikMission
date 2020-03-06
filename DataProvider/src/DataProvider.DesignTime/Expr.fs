@@ -17,13 +17,110 @@
 
 namespace SturmovikMission.Expr
 
+open System.Collections.Generic
+
+module internal AstExtensions =
+    open FSharp.Quotations
+    open SturmovikMission.DataProvider.Ast
+    open SturmovikMission
+
+    let private valueTypeToExprCache = new Dictionary<ValueType, Expr<ValueType>>(HashIdentity.Structural)
+
+    let buildExprFromValueType expr =
+        let mutable idx = 0
+        let newVar() =
+            idx <- idx + 1
+            Var(sprintf "_%d" idx, typeof<ValueType>)
+        let getFinalVar : (Var * Expr<ValueType>)[] -> Expr = Array.last >> fst >> Expr.Var
+        let rec mkVarsAndDefs (typ : ValueType) =
+            [|
+                match typ with
+                | ValueType.Boolean -> yield newVar(), <@ ValueType.Boolean @>
+                | ValueType.Integer -> yield newVar(), <@ ValueType.Integer @>
+                | ValueType.String -> yield newVar(), <@ ValueType.String @>
+                | ValueType.Float  -> yield newVar(), <@ ValueType.Float @>
+                | ValueType.Date -> yield newVar(), <@ ValueType.Date @>
+                | ValueType.IntVector -> yield newVar(), <@ ValueType.IntVector @>
+                | ValueType.Mapping vt ->
+                    let before = mkVarsAndDefs vt
+                    let v = getFinalVar before
+                    yield! before
+                    yield newVar(), <@ ValueType.Mapping %%v @>
+                | ValueType.List vt ->
+                    let before = mkVarsAndDefs vt
+                    let v = getFinalVar before
+                    yield! before
+                    yield newVar(), <@ ValueType.List %%v @>
+                | ValueType.Pair (p1, p2) ->
+                    let before1 = mkVarsAndDefs p1
+                    let v1 = getFinalVar before1
+                    let before2 = mkVarsAndDefs p2
+                    let v2 = getFinalVar before2
+                    yield! before1
+                    yield! before2
+                    yield newVar(), <@ ValueType.Pair(%%v1, %%v2) @>
+                | ValueType.Triplet (p1, p2, p3) ->
+                    let before1 = mkVarsAndDefs p1
+                    let v1 = getFinalVar before1
+                    let before2 = mkVarsAndDefs p2
+                    let v2 = getFinalVar before2
+                    let before3 = mkVarsAndDefs p3
+                    let v3 = getFinalVar before2
+                    yield! before1
+                    yield! before2
+                    yield! before3
+                    yield newVar(), <@ ValueType.Triplet(%%v1, %%v2, %%v3) @>
+                | ValueType.FloatPair ->
+                    yield newVar(), <@ ValueType.FloatPair @>
+                | ValueType.Composite components when components.IsEmpty ->
+                    yield newVar(), <@ ValueType.Composite Map.empty @>
+                | ValueType.Composite components ->
+                    let mutable componentVars = Map.empty
+                    let components = Map.toList components
+                    for (name, (t, _, _)) in components do
+                        let before = mkVarsAndDefs t
+                        let v = getFinalVar before
+                        componentVars <- componentVars.Add(name, v)
+                        yield! before
+                    let mapping = Var("mapping", typeof<Map<string, ValueType * MinMultiplicity * MaxMultiplicity>>, isMutable=true)
+                    let mappingV =
+                        Expr.Var mapping
+                        |> Expr.Cast<Map<_, _>>
+                    let buildMapping =
+                        components
+                        |> List.map (fun (name, (_, m, M)) ->
+                            let vt = componentVars.[name]
+                            let m = m.ToExpr()
+                            let M = M.ToExpr()
+                            Expr.VarSet(mapping, <@@ Map.add name (%%vt, %m, %M) (%mappingV) @@>)
+                            |> Expr.Cast<unit>)
+                        |> List.fold (fun e1 e2 -> <@ %e2;%e1 @>) <@ ignore() @>
+                        |> fun e ->
+                            Expr.Let(mapping, <@@ Map.empty : Map<string, ValueType * MinMultiplicity * MaxMultiplicity> @@>, e)
+                    let expr =
+                        <@
+                            (%%buildMapping : unit)
+                            %mappingV
+                        @>
+                    yield newVar(), <@ ValueType.Composite %expr @>
+            |]
+        let whole = mkVarsAndDefs expr
+        let v = getFinalVar whole
+        (whole, v) ||> Array.foldBack (fun (v, defn) e ->
+            Expr.Let(v, defn, e)
+        )
+        |> Expr.Cast<ValueType>
+
+    let getExprOfValueType expr =
+        Cached.cached valueTypeToExprCache buildExprFromValueType expr
+
+    type ValueType
+        with member this.ToExpr() = getExprOfValueType this
 
 module internal ExprExtensions =
     open FSharp.Quotations
-    open System.Collections.Generic
     open ProviderImplementation.ProvidedTypes.UncheckedQuotations
     open ProviderImplementation.ProvidedTypes
-    open SturmovikMission.Util
 
     type Expr with
         /// Convert a raw expression of some generarted type to a typed expression with a given target type.
