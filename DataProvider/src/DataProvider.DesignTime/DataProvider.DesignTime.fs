@@ -270,7 +270,19 @@ module internal Internal =
                         let propTyp = ProvidedTypeBuilder.MakeGenericType(typedefof<_ list>, [ptyp1])
                         ptyp.AddMember(pdb.NewProperty("Value", propTyp, fun this -> <@@ (%this : Ast.Value).GetList() @@>))
                         // constructor with value
-                        ptyp.AddMember(pdb.NewConstructor(["items", propTyp], fun args -> let items = args.[0] in <@ Ast.Value.List (%%items : Ast.Value list)@>))
+                        ptyp.AddMember(
+                            pdb.NewConstructor(
+                                ["items", propTyp],
+                                fun args ->
+                                    let items = Expr.ConvertEnumerable<AstValueWrapper> args.[0]
+                                    <@
+                                        %items
+                                        |> Seq.map (fun w -> w.Wrapped)
+                                        |> List.ofSeq
+                                        |> Ast.Value.List
+                                    @>
+                            )
+                        )
                         // Result
                         ptyp
                 // Add a default constructor
