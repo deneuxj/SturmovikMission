@@ -620,7 +620,8 @@ module internal Internal =
             constructor.BaseConstructorCall <-
                 function
                 | this :: nodes :: _ ->
-                    upcast constructor, [this; nodes]
+                    let cinfo = typeof<GroupMembers>.GetConstructor [| typeof<Ast.Data list> |]
+                    cinfo, [this; nodes]
                 | _ ->
                     failwith "Wrong number of arguments"
             constructor
