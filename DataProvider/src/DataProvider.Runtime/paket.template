@@ -1,6 +1,6 @@
 type file
 id SturmovikMission.DataProvider
-version 6.0.1
+version 7.0.0
 authors
     Johann Deneux
 owners
@@ -31,11 +31,12 @@ references
 	McuLibrary.dll
 dependencies
   FSharp.Core >= LOCKEDVERSION
-
+  FsPicker
+  
 # put any package references here
 #  Some.Package
 #  framework: netcoreapp3.1
 #    System.Text.Encoding.CodePages >= LOCKEDVERSION
 #  framework: netstandard2.0
 #    System.Text.Encoding.CodePages >= LOCKEDVERSION
-  FsPicker >= LOCKEDVERSION
+  
