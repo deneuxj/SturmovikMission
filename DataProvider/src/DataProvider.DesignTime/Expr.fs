@@ -34,7 +34,7 @@ module internal AstExtensions =
         let s = writer.ToString()
         let s = Expr.Value(s) |> Expr.Cast<string>
         <@
-            use reader = new System.IO.StringReader(%s)
+            let reader = new System.IO.StringReader(%s)
             let serializer = XmlSerializer()
             serializer.Deserialize<ValueType>(reader)
         @>
@@ -51,7 +51,7 @@ module internal AstExtensions =
             let s = writer.ToString()
             let s = Expr.Value(s) |> Expr.Cast<string>
             <@
-                use reader = new System.IO.StringReader(%s)
+                let reader = new System.IO.StringReader(%s)
                 let serializer = XmlSerializer()
                 serializer.Deserialize<Map<'K, ValueType>>(reader)
             @>
