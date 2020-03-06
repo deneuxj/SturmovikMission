@@ -235,13 +235,13 @@ module internal Internal =
                             let subpTyp = getProvidedType { Name = fieldName; Kind = fieldKind; Parents = parents }
                             addComplexNestedType(ptyp, subpTyp, fieldKind)
                         // Getters
-                        ptyp.AddMembersDelayed(fun() -> getters parents fields)
+                        ptyp.AddMembers(getters parents fields)
                         // Setters
-                        ptyp.AddMembersDelayed(fun() -> setters parents (fields, ptyp))
+                        ptyp.AddMembers(setters parents (fields, ptyp))
                         // Create as MCU
-                        ptyp.AddMembersDelayed(fun() -> asMcu (name, typId.Kind, typExpr))
+                        ptyp.AddMembers(asMcu (name, typId.Kind, typExpr))
                         // Parse
-                        ptyp.AddMemberDelayed(fun() -> staticParser (typId.Kind, name, ptyp))
+                        ptyp.AddMember(staticParser (typId.Kind, name, ptyp))
                         // Dump to text
                         let meth = pdb.NewMethod("AsString", typeof<string>, [], fun this _ ->
                             <@@
@@ -616,11 +616,11 @@ module internal Internal =
             |> addXmlDoc """
                 <summary>Provide access to parsed data.</summary>
                 <param name="nodes">The result of parsing a group or mission file</param>"""
-        parser.AddMemberDelayed(fun () -> constructFromList)
+        parser.AddMember(constructFromList)
         let callConstructor (arg : Expr<Ast.Data list>) =
             Expr.NewObject(constructFromList, [arg])
         // Static method: Parse a group or mission file
-        parser.AddMemberDelayed(fun() ->
+        parser.AddMember(
             let constructor =
                 pdb.NewStaticMethod("Parse", parser, [("s", typeof<Parsing.Stream>)],
                     function
@@ -644,7 +644,7 @@ module internal Internal =
                 <param name="s">The stream that is parsed</param>
                 <exception cref="Parsing.ParseError">Failed to parse the mission or group</exception>""")
         // Get data from a subgroup
-        parser.AddMemberDelayed(fun () ->
+        parser.AddMember(
             pdb.NewMethod("GetGroup", parser, [("name", typeof<string>)], 
                 function
                 | [this; name] ->
@@ -664,7 +664,7 @@ module internal Internal =
                 <param name="name">Name of the subgroup</param>""")
         // Getters: list of objects of each type
         for (name, valueType, ptyp) in topComplexTypes do
-            parser.AddMemberDelayed(fun() ->
+            parser.AddMember(
                 pdb.NewProperty(sprintf "ListOf%s" name, ProvidedTypeBuilder.MakeGenericType(typedefof<_ list>, [ptyp]), fun this ->
                     let this = Expr.Convert<GroupMembers>(this)
                     <@@
@@ -677,7 +677,7 @@ module internal Internal =
                     @@>)
                 |> addXmlDoc (sprintf """<summary>Build a list of immutable instances of %s</summary>""" name))
         // Get the flattened list of objects as instances of McuBase and its subtypes, when appropriate
-        parser.AddMemberDelayed(fun() ->
+        parser.AddMember(
             buildAsMcuList logInfo pdb namedValueTypes
             |> addXmlDoc """<summary>Build a list of mutable instances of McuBase from the extracted data.</summary>""")
         // Logging
