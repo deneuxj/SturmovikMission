@@ -44,7 +44,7 @@ module internal Internal =
                     function
                     | this :: value :: _ ->
                         let cinfo = typeof<AstValueWrapper>.GetConstructor [| typeof<Ast.Value> |]
-                        let args = [value]
+                        let args = [this; value]
                         cinfo, args
                     | _ -> failwith "Wrong number of arguments passed to AstValueWrapper constructor"
                 ptyp.AddMember(constructor)
@@ -76,7 +76,7 @@ module internal Internal =
                     | this :: args ->
                         let cinfo = typeof<AstValueWrapper>.GetConstructor [| typeof<Ast.Value> |]
                         let value : Expr<Ast.Value> = setup args
-                        let args = [value.Raw]
+                        let args = [this; value.Raw]
                         cinfo, args
                     | _ -> failwith "Wrong number of arguments passed to AstValueWrapper constructor"
                 constructor
@@ -609,7 +609,7 @@ module internal Internal =
             constructor.BaseConstructorCall <-
                 function
                 | this :: nodes :: _ ->
-                    upcast constructor, [nodes]
+                    upcast constructor, [this; nodes]
                 | _ ->
                     failwith "Wrong number of arguments"
             constructor
