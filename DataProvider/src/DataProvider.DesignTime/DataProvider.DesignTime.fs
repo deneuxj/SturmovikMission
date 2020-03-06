@@ -619,31 +619,6 @@ module internal Internal =
             |> Map.ofSeq
             |> Expr.Value
             |> Expr.Cast<Map<string, Ast.ValueType>>
-        // Constructor: Parse a group or mission file
-        parser.AddMemberDelayed(fun() ->
-            let constructor =
-                pdb.NewConstructor([("s", typeof<Parsing.Stream>)], fun _ -> <@@ () @@>)
-            constructor.BaseConstructorCall <- fun args ->
-                match args with
-                | this :: s :: _ ->
-                    let baseArg =
-                        <@@
-                            let parsers =
-                                %valueTypeOfName
-                                |> Map.map (fun name valueType -> Parsing.makeParser valueType)
-                            let getParser name = parsers.[name]
-                            let s = (%%s : Parsing.Stream)
-                            let data = Parsing.parseFile getParser s
-                            data
-                        @@>
-                    upcast constructor, [baseArg]
-                | _ ->
-                    failwith "Wrong number of arguments"
-            constructor
-            |> addXmlDoc """
-                <summary>Parse a mission or group file and store the extracted data.</summary>
-                <param name="s">The stream that is parsed</param>
-                <exception cref="Parsing.ParseError">Failed to parse the mission or group</exception>""")
         // Constructor: From a list of AST nodes
         let constructFromList =
             let constructor =
@@ -659,13 +634,37 @@ module internal Internal =
                 <summary>Provide access to parsed data.</summary>
                 <param name="nodes">The result of parsing a group or mission file</param>"""
         parser.AddMemberDelayed(fun () -> constructFromList)
+        let callConstructor (arg : Expr<Ast.Data list>) =
+            Expr.NewObject(constructFromList, [arg])
+        // Static method: Parse a group or mission file
+        parser.AddMemberDelayed(fun() ->
+            let constructor =
+                pdb.NewStaticMethod("Parse", parser, [("s", typeof<Parsing.Stream>)],
+                    function
+                    | s :: _ ->
+                        let nodes =
+                            <@
+                                let parsers =
+                                    %valueTypeOfName
+                                    |> Map.map (fun name valueType -> Parsing.makeParser valueType)
+                                let getParser name = parsers.[name]
+                                let s = (%%s : Parsing.Stream)
+                                let data = Parsing.parseFile getParser s
+                                data
+                            @>
+                        callConstructor nodes
+                    | _ ->
+                        failwith "Wrong number of arguments")
+            constructor
+            |> addXmlDoc """
+                <summary>Parse a mission or group file and store the extracted data.</summary>
+                <param name="s">The stream that is parsed</param>
+                <exception cref="Parsing.ParseError">Failed to parse the mission or group</exception>""")
         // Get data from a subgroup
         parser.AddMemberDelayed(fun () ->
             pdb.NewMethod("GetGroup", parser, [("name", typeof<string>)], 
                 function
                 | [this; name] ->
-                    let callConstructor (arg : Expr<Ast.Data list>) =
-                        Expr.NewObject(constructFromList, [arg])
                     let this = Expr.Convert<GroupMembers>(this)
                     let nodes =
                         <@
