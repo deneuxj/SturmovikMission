@@ -274,8 +274,8 @@ module internal Internal =
                         // Result
                         ptyp
                 // Add a default constructor
-                let defaultValue = Ast.defaultExprValue typId.Kind
-                ptyp.AddMember(pdb.NewConstructor([], fun _ -> defaultValue))
+                let kind = typId.Kind.ToExpr()
+                ptyp.AddMember(pdb.NewConstructor([], fun _ -> <@ Ast.defaultValue %kind @>))
                 ptyp
             finally
                 logInfo <| sprintf "Done building provided type for %s" typId.Name
@@ -466,7 +466,7 @@ module internal Internal =
                 | None -> ()
             ]
 
-        // Constructor. Its arguments are built similarly to the setters
+        // Constructor. Its arguments are the fields with multiplicity exactly one.
         and construct parents (fields, ptyp) =
             let args =
                 fields
