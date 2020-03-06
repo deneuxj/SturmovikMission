@@ -68,3 +68,7 @@ let ``GroupData.CreateMcuList does not create a compile-time type mismatch``() =
     let s = Parsing.Stream.FromString data
     let groupData = T.GroupData.Parse(s)
     Assert.DoesNotThrow(fun () -> groupData.CreateMcuList() |> ignore)
+
+[<Test>]
+let ``T.Boolean default value can be retrieved``() =
+    Assert.DoesNotThrow(T.Boolean.Default)
