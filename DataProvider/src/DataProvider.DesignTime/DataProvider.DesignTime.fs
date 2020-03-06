@@ -303,9 +303,10 @@ module internal Internal =
                         )
                         // Result
                         ptyp
-                // Add a default constructor
-                let kind = typId.Kind.ToExpr()
-                ptyp.AddMember(pdb.NewNamedConstructor("Default", ptyp, [], fun _ -> <@ Ast.defaultValue %kind @>))
+                // Add a default constructor, unless it's a ground type (it's already got one)
+                if not (Ast.isGroundType typId.Kind) then
+                    let kind = typId.Kind.ToExpr()
+                    ptyp.AddMember(pdb.NewNamedConstructor("Default", ptyp, [], fun _ -> <@ Ast.defaultValue %kind @>))
                 ptyp
             finally
                 logInfo <| sprintf "Done building provided type for %s" typId.Name
