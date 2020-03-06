@@ -27,7 +27,7 @@ type T = Provider< @"..\..\..\data\Sample.Mission">
 [<Test>]
 let ``vehicles have repair, refuel``() =
     let vehicle =
-        T.Vehicle()
+        T.Vehicle.Default
             .SetMaintenanceRadius(T.Integer 500)
             .SetRepairFriendlies(T.Boolean true)
             .SetRepairTime(T.Integer 60)
@@ -43,19 +43,19 @@ let ``vehicles have repair, refuel``() =
 [<Test>]
 let ``airfield planes can be constructed``() =
     Assert.DoesNotThrow(fun () ->
-        T.Airfield.Planes()
+        T.Airfield.Planes.Default
         |> ignore)
 
 [<Test>]
 let ``wind layer value types can be default-constructed``() =
     Assert.DoesNotThrow(fun () ->
-        T.Options.WindLayers.WindLayers_ValueType()
+        T.Options.WindLayers.WindLayers_ValueType.Default
         |> ignore)
 
 [<Test>]
 let ``wind layer value types can be constructed``() =
     Assert.DoesNotThrow(fun () ->
-        T.Options.WindLayers.WindLayers_ValueType((T.Integer 0, T.Integer 1, T.Integer 2))
+        T.Options.WindLayers.WindLayers_ValueType.Create(T.Integer 0, T.Integer 1, T.Integer 2)
         |> ignore)
 
 [<Test>]
@@ -63,8 +63,8 @@ let ``wind layer value types can be constructed``() =
 // The type provider 'SturmovikMission.DataProvider.TypeProvider.MissionTypes' reported an error in the context of provided type 'SturmovikMissionTypes.Provider,sample="..\\..\\..\\data\\Sample.Mission"+GroupData', member 'CreateMcuList'. The error: Type mismatch when building 'expr': the expression has the wrong type. Expected 'Microsoft.FSharp.Collections.FSharpList`1[SturmovikMission.DataProvider.Ast+Data]', but received type 'Microsoft.FSharp.Collections.FSharpList`1[SturmovikMission.DataProvider.Ast+Data]'.Parameter name: receivedType
 let ``GroupData.CreateMcuList does not create a compile-time type mismatch``() =
     let timer =
-        T.MCU_Timer().SetIndex(T.Integer 1)
+        T.MCU_Timer.Default.SetIndex(T.Integer 1)
     let data = sprintf "Group {\n  Name = \"G\";\n%s\n }" (timer.AsString())
     let s = Parsing.Stream.FromString data
-    let groupData = T.GroupData(s)
+    let groupData = T.GroupData.Parse(s)
     Assert.DoesNotThrow(fun () -> groupData.CreateMcuList() |> ignore)
