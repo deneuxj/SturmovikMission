@@ -621,28 +621,40 @@ module internal Internal =
             |> Expr.Cast<Map<string, Ast.ValueType>>
         // Constructor: Parse a group or mission file
         parser.AddMemberDelayed(fun() ->
-            pdb.NewConstructor([("s", typeof<Parsing.Stream>)], fun args ->
-                let s = List.head args
-                <@@
-                    let parsers =
-                        %valueTypeOfName
-                        |> Map.map (fun name valueType -> Parsing.makeParser valueType)
-                    let getParser name = parsers.[name]
-                    let s = (%%s : Parsing.Stream)
-                    let data = Parsing.parseFile getParser s
-                    GroupMembers(data)
-                @@>)
+            let constructor =
+                pdb.NewConstructor([("s", typeof<Parsing.Stream>)], fun _ -> <@@ () @@>)
+            constructor.BaseConstructorCall <- fun args ->
+                match args with
+                | this :: s :: _ ->
+                    let baseArg =
+                        <@@
+                            let parsers =
+                                %valueTypeOfName
+                                |> Map.map (fun name valueType -> Parsing.makeParser valueType)
+                            let getParser name = parsers.[name]
+                            let s = (%%s : Parsing.Stream)
+                            let data = Parsing.parseFile getParser s
+                            data
+                        @@>
+                    upcast constructor, [baseArg]
+                | _ ->
+                    failwith "Wrong number of arguments"
+            constructor
             |> addXmlDoc """
                 <summary>Parse a mission or group file and store the extracted data.</summary>
                 <param name="s">The stream that is parsed</param>
                 <exception cref="Parsing.ParseError">Failed to parse the mission or group</exception>""")
         // Constructor: From a list of AST nodes
         let constructFromList =
-            pdb.NewConstructor([("nodes", dataListType)], fun args ->
-                let nodes = List.head args
-                <@@
-                    GroupMembers(%%nodes : Ast.Data list)
-                @@>)
+            let constructor =
+                pdb.NewConstructor([("nodes", dataListType)], fun _ -> <@@ () @@>)
+            constructor.BaseConstructorCall <-
+                function
+                | this :: nodes :: _ ->
+                    upcast constructor, [nodes]
+                | _ ->
+                    failwith "Wrong number of arguments"
+            constructor
             |> addXmlDoc """
                 <summary>Provide access to parsed data.</summary>
                 <param name="nodes">The result of parsing a group or mission file</param>"""
@@ -654,9 +666,10 @@ module internal Internal =
                 | [this; name] ->
                     let callConstructor (arg : Expr<Ast.Data list>) =
                         Expr.NewObject(constructFromList, [arg])
+                    let this = Expr.Convert<GroupMembers>(this)
                     let nodes =
                         <@
-                            let nodes = (%%this : GroupMembers).Items
+                            let nodes = (%this).Items
                             nodes
                             |> List.map (fun node -> node.FindByPath [(%%name : string)])
                             |> List.concat
@@ -671,10 +684,10 @@ module internal Internal =
         for (name, valueType, ptyp) in topComplexTypes do
             parser.AddMemberDelayed(fun() ->
                 pdb.NewProperty(sprintf "ListOf%s" name, ProvidedTypeBuilder.MakeGenericType(typedefof<_ list>, [ptyp]), fun this ->
+                    let this = Expr.Convert<GroupMembers>(this)
                     <@@
-                        let this = (%%this : GroupMembers)
                         let ret =
-                            this.Items
+                            (%this).Items
                             |> List.map (fun data -> data.GetLeaves())
                             |> List.concat
                             |> List.choose (function (name2, value) -> if name2 = name then Some value else None)
