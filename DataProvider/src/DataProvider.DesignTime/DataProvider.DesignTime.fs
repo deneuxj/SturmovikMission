@@ -495,8 +495,13 @@ module internal Internal =
                     let args =
                         args
                         |> List.fold (fun expr arg ->
-                            let wrapper = Expr.Cast<AstValueWrapper>(Expr.Coerce(arg, typeof<AstValueWrapper>))
-                            <@ (%wrapper).Wrapped :: %expr @>) <@ [] @>
+                            let wrapper = Expr.Convert<AstValueWrapper>(arg)
+                            <@
+                                let wrapped = (%wrapper).Wrapped
+                                let tail = %expr
+                                let res = wrapped :: tail
+                                res
+                            @>) <@ [] @>
                     <@
                         Ast.Value.Composite(List.zip %argNames %args)
                     @>
