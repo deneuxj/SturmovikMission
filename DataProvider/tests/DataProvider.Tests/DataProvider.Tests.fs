@@ -28,11 +28,11 @@ type T = Provider< @"..\..\..\data\Sample.Mission">
 let ``vehicles have repair, refuel``() =
     let vehicle =
         T.Vehicle.Default
-            .SetMaintenanceRadius(T.Integer 500)
-            .SetRepairFriendlies(T.Boolean true)
-            .SetRepairTime(T.Integer 60)
-            .SetRefuelFriendlies(T.Boolean true)
-            .SetRefuelTime(T.Integer 30)
+            .SetMaintenanceRadius(T.Integer.N 500)
+            .SetRepairFriendlies(T.Boolean.N true)
+            .SetRepairTime(T.Integer.N 60)
+            .SetRefuelFriendlies(T.Boolean.N true)
+            .SetRefuelTime(T.Integer.N 30)
     let repr = vehicle.AsString()
     let parser = T.Vehicle.GetParser()
     parser.Run(Parsing.Stream.FromString repr) |> ignore
@@ -55,7 +55,7 @@ let ``wind layer value types can be default-constructed``() =
 [<Test>]
 let ``wind layer value types can be constructed``() =
     Assert.DoesNotThrow(fun () ->
-        T.Options.WindLayers.WindLayers_ValueType.Create(T.Integer 0, T.Integer 1, T.Integer 2)
+        T.Options.WindLayers.WindLayers_ValueType.Create(T.Integer.N 0, T.Integer.N 1, T.Integer.N 2)
         |> ignore)
 
 [<Test>]
@@ -63,7 +63,7 @@ let ``wind layer value types can be constructed``() =
 // The type provider 'SturmovikMission.DataProvider.TypeProvider.MissionTypes' reported an error in the context of provided type 'SturmovikMissionTypes.Provider,sample="..\\..\\..\\data\\Sample.Mission"+GroupData', member 'CreateMcuList'. The error: Type mismatch when building 'expr': the expression has the wrong type. Expected 'Microsoft.FSharp.Collections.FSharpList`1[SturmovikMission.DataProvider.Ast+Data]', but received type 'Microsoft.FSharp.Collections.FSharpList`1[SturmovikMission.DataProvider.Ast+Data]'.Parameter name: receivedType
 let ``GroupData.CreateMcuList does not create a compile-time type mismatch``() =
     let timer =
-        T.MCU_Timer.Default.SetIndex(T.Integer 1)
+        T.MCU_Timer.Default.SetIndex(T.Integer.N 1)
     let data = sprintf "Group {\n  Name = \"G\";\n%s\n }" (timer.AsString())
     let s = Parsing.Stream.FromString data
     let groupData = T.GroupData.Parse(s)
@@ -71,4 +71,4 @@ let ``GroupData.CreateMcuList does not create a compile-time type mismatch``() =
 
 [<Test>]
 let ``T.Boolean default value can be retrieved``() =
-    Assert.DoesNotThrow(T.Boolean.Default)
+    Assert.DoesNotThrow(fun () -> let x : T.Boolean = T.Boolean.Default in ())

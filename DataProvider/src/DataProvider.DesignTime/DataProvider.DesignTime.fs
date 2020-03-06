@@ -147,43 +147,43 @@ module internal Internal =
         let ptypBoolean =
             let ptyp = pdb.NewWrapper("Boolean")
             ptyp.AddMember(pdb.NewProperty("Value", typeof<bool>, fun this -> <@@ (%this : Ast.Value).GetBool() @@>))
-            ptyp.AddMember(pdb.NewConstructor([("value", typeof<bool>)], fun args -> let value = args.[0] in <@ Ast.Value.Boolean (%%value : bool) @>))
+            ptyp.AddMember(pdb.NewNamedConstructor("N", ptyp, [("value", typeof<bool>)], fun args -> let value = args.[0] in <@ Ast.Value.Boolean (%%value : bool) @>))
             ptyp.AddMember(pdb.NewNamedConstructor("Default", ptyp, [], fun _ -> <@ Ast.Value.Boolean false @>))
             ptyp
 
         let ptypFloat =
             let ptyp = pdb.NewWrapper("Float")
             ptyp.AddMember(pdb.NewProperty("Value", typeof<float>, fun this -> <@@ (%this : Ast.Value).GetFloat() @@>))
-            ptyp.AddMember(pdb.NewConstructor([("value", typeof<float>)], fun args -> let value = args.[0] in <@ Ast.Value.Float (%%value : float) @>))
-            //ptyp.AddMember(pdb.NewNamedConstructor("Default", ptyp, [], fun _ -> <@ Ast.Value.Float 0.0 @>))
+            ptyp.AddMember(pdb.NewNamedConstructor("N", ptyp, [("value", typeof<float>)], fun args -> let value = args.[0] in <@ Ast.Value.Float (%%value : float) @>))
+            ptyp.AddMember(pdb.NewNamedConstructor("Default", ptyp, [], fun _ -> <@ Ast.Value.Float 0.0 @>))
             ptyp
 
         let ptypFloatPair =
             let ptyp = pdb.NewWrapper("FloatPair")
             ptyp.AddMember(pdb.NewProperty("Value", typeof<float * float>, fun this -> <@@ (%this : Ast.Value).GetFloatPair() @@>))
-            ptyp.AddMember(pdb.NewConstructor([("value", typeof<float * float>)], fun args -> let value = args.[0] in <@ let x, y = (%%value : float * float) in Ast.Value.FloatPair(x, y) @>))
-            //ptyp.AddMember(pdb.NewNamedConstructor("Default", ptyp, [], fun _ -> <@ Ast.Value.FloatPair(0.0, 0.0) @>))
+            ptyp.AddMember(pdb.NewNamedConstructor("N", ptyp, [("value", typeof<float * float>)], fun args -> let value = args.[0] in <@ let x, y = (%%value : float * float) in Ast.Value.FloatPair(x, y) @>))
+            ptyp.AddMember(pdb.NewNamedConstructor("Default", ptyp, [], fun _ -> <@ Ast.Value.FloatPair(0.0, 0.0) @>))
             ptyp
 
         let ptypInteger =
             let ptyp = pdb.NewWrapper("Integer")
             ptyp.AddMember(pdb.NewProperty("Value", typeof<int>, fun this -> <@@ (%this : Ast.Value).GetInteger() @@>))
-            ptyp.AddMember(pdb.NewConstructor([("value", typeof<int>)], fun args -> let value = args.[0] in <@ Ast.Value.Integer (%%value : int) @>))
-            //ptyp.AddMember(pdb.NewNamedConstructor("Default", ptyp, [], fun _ -> <@ Ast.Value.Integer 0 @>))
+            ptyp.AddMember(pdb.NewNamedConstructor("N", ptyp, [("value", typeof<int>)], fun args -> let value = args.[0] in <@ Ast.Value.Integer (%%value : int) @>))
+            ptyp.AddMember(pdb.NewNamedConstructor("Default", ptyp, [], fun _ -> <@ Ast.Value.Integer 0 @>))
             ptyp
 
         let ptypString =
             let ptyp = pdb.NewWrapper("String")
             ptyp.AddMember(pdb.NewProperty("Value", typeof<string>, fun this -> <@@ (%this : Ast.Value).GetString() @@>))
-            ptyp.AddMember(pdb.NewConstructor([("value", typeof<string>)], fun args -> let value = args.[0] in <@ Ast.Value.String (%%value : string) @>))
-            //ptyp.AddMember(pdb.NewNamedConstructor("Default", ptyp, [], fun _ -> <@ Ast.Value.String "" @>))
+            ptyp.AddMember(pdb.NewNamedConstructor("N", ptyp, [("value", typeof<string>)], fun args -> let value = args.[0] in <@ Ast.Value.String (%%value : string) @>))
+            ptyp.AddMember(pdb.NewNamedConstructor("Default", ptyp, [], fun _ -> <@ Ast.Value.String "" @>))
             ptyp
 
         let ptypIntVector =
             let ptyp = pdb.NewWrapper("VectorOfIntegers")
             ptyp.AddMember(pdb.NewProperty("Value", typeof<int list>, fun this -> <@@ (%this : Ast.Value).GetIntVector() @@>))
-            ptyp.AddMember(pdb.NewConstructor([("value", typeof<int list>)], fun args -> let value = args.[0] in <@ Ast.Value.IntVector (%%value : int list) @>))
-            //ptyp.AddMember(pdb.NewNamedConstructor("Default", ptyp, [], fun _ -> <@ Ast.Value.IntVector [] @>))
+            ptyp.AddMember(pdb.NewNamedConstructor("N", ptyp, [("value", typeof<int list>)], fun args -> let value = args.[0] in <@ Ast.Value.IntVector (%%value : int list) @>))
+            ptyp.AddMember(pdb.NewNamedConstructor("Default", ptyp, [], fun _ -> <@ Ast.Value.IntVector [] @>))
             ptyp
 
         let ptypDate =
