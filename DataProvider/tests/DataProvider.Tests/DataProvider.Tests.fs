@@ -25,7 +25,7 @@ open NUnit.Framework
 type T = Provider< @"..\..\..\data\Sample.Mission">
 
 [<Test>]
-let ``vehicles have repair, refuel``() =
+let ``T.Vehicle has repair and refuel fields``() =
     let vehicle =
         T.Vehicle.Default
             .SetMaintenanceRadius(T.Integer.N 500)
@@ -41,19 +41,19 @@ let ``vehicles have repair, refuel``() =
         |> ignore)
 
 [<Test>]
-let ``airfield planes can be constructed``() =
+let ``T.Airfield.Planes can be constructed``() =
     Assert.DoesNotThrow(fun () ->
         T.Airfield.Planes.Default
         |> ignore)
 
 [<Test>]
-let ``wind layer value types can be default-constructed``() =
+let ``T.Options.WindLayers.WindLayers_ValueType can be default-constructed``() =
     Assert.DoesNotThrow(fun () ->
         T.Options.WindLayers.WindLayers_ValueType.Default
         |> ignore)
 
 [<Test>]
-let ``wind layer value types can be constructed``() =
+let ``T.Options.WindLayers.WindLayers_ValueType can be constructed``() =
     Assert.DoesNotThrow(fun () ->
         T.Options.WindLayers.WindLayers_ValueType.Create(T.Integer.N 0, T.Integer.N 1, T.Integer.N 2)
         |> ignore)
@@ -61,7 +61,7 @@ let ``wind layer value types can be constructed``() =
 [<Test>]
 // When compiling with 6.0.0 exhibits the following compile-time error:
 // The type provider 'SturmovikMission.DataProvider.TypeProvider.MissionTypes' reported an error in the context of provided type 'SturmovikMissionTypes.Provider,sample="..\\..\\..\\data\\Sample.Mission"+GroupData', member 'CreateMcuList'. The error: Type mismatch when building 'expr': the expression has the wrong type. Expected 'Microsoft.FSharp.Collections.FSharpList`1[SturmovikMission.DataProvider.Ast+Data]', but received type 'Microsoft.FSharp.Collections.FSharpList`1[SturmovikMission.DataProvider.Ast+Data]'.Parameter name: receivedType
-let ``GroupData.CreateMcuList does not create a compile-time type mismatch``() =
+let ``T.GroupData.CreateMcuList does not create a compile-time type mismatch``() =
     let timer =
         T.MCU_Timer.Default.SetIndex(T.Integer.N 1)
     let data = sprintf "Group {\n  Name = \"G\";\n%s\n }" (timer.AsString())
@@ -74,7 +74,7 @@ let ``T.Boolean default value can be retrieved``() =
     Assert.DoesNotThrow(fun () -> let x : T.Boolean = T.Boolean.Default in ())
 
 [<Test>]
-let ``Type of complex triggers is properly inferred``() =
+let ``T.MCU_TR_ComplexTrigger has its type properly properly inferred``() =
     let vt = T.MCU_TR_ComplexTrigger.AstType
     printfn "%A" vt
     match vt with
@@ -111,7 +111,7 @@ let ``Type of complex triggers is properly inferred``() =
 
 // asMcu
 [<Test>]
-let ``Complex trigger can be converted to MCU, dumped, and parsed again``() =
+let ``T.MCU_TR_ComplexTrigger can be converted to MCU, dumped, and parsed again``() =
     let complex = T.MCU_TR_ComplexTrigger.Default
     let repr = complex.AsString()
     let mcu = complex.CreateMcu()
