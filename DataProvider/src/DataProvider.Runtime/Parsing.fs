@@ -276,7 +276,11 @@ and makeParser (format : ValueType) : ParserFun =
         function
         | ReLit "{" s ->
             let vs, s = parse s []
-            (Composite vs, s)
+            match validateFieldMultiplicities(Composite vs, format) with
+            | Ok _ ->
+                (Composite vs, s)
+            | Error msg ->
+                parseError("Field occurrence validation in composite failed: " + msg, s)
         | s -> parseError("Not {", s)
     | ValueType.Mapping itemType ->
         let rec parse (s : Stream) pairs =

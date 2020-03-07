@@ -31,7 +31,7 @@ with
         match this with
         | MaxOne -> <@ MaxOne @>
         | Multiple -> <@ Multiple @>
-            
+
 let least =
     function
     | Zero, _
@@ -206,6 +206,41 @@ with
         | List _ -> List []
         | IntVector _ -> IntVector []
         | _ -> invalidOp "Not a Mapping, Set or IntVector"
+
+let validateFieldMultiplicities(v : Value, vt : ValueType) =
+    let check (mmin, mmax, n) =
+        let minOk =
+            match mmin with
+            | Zero -> true
+            | MinOne -> n >= 1
+        let maxOk =
+            match mmax with
+            | MaxOne -> n <= 1
+            | Multiple -> true
+        minOk && maxOk
+
+    match v, vt with
+    | Value.Composite values, ValueType.Composite fields ->
+        let occurrences =
+            values
+            |> Seq.groupBy fst
+            |> Seq.map (fun (fieldName, xs) -> fieldName, Seq.length xs)
+            |> Map.ofSeq
+        seq {
+            for name, (_, mmin, mmax) in Map.toSeq fields do
+                let occ = occurrences.TryFind name |> Option.defaultValue 0
+                if not(check(mmin, mmax, occ)) then
+                    yield sprintf "Incorrect occurrence of %s, %d is not within %A and %A" name occ mmin mmax
+            for name, occ in Map.toSeq occurrences do
+                if not(fields.ContainsKey name) && occ > 0 then
+                    yield sprintf "Unexpected field %s appears %d times" name occ
+        }
+        |> Seq.fold (fun (res : Result<string, string>) error ->
+            match res with
+            | Ok _ -> Error error
+            | Error msg1 -> Error (msg1 + "; " + error)) (Ok "Occurrences in composite are all within constraints")
+    | _ ->
+        Ok "Occurrences in non-composite type were not checked"
 
 let rec defaultValue (typ : ValueType) =
     match typ with
