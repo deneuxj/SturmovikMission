@@ -109,7 +109,6 @@ let ``T.MCU_TR_ComplexTrigger has its type properly properly inferred``() =
     | _ ->
         Assert.Fail("Complex trigger MCU is not a composite")
 
-// asMcu
 [<Test>]
 let ``T.MCU_TR_ComplexTrigger can be converted to MCU, dumped, and parsed again``() =
     let complex = T.MCU_TR_ComplexTrigger.Default
@@ -118,6 +117,27 @@ let ``T.MCU_TR_ComplexTrigger can be converted to MCU, dumped, and parsed again`
     let repr2 = mcu.AsString()
     printfn "%s" repr
     Assert.AreEqual(repr, repr2)
+    let parser = T.MCU_TR_ComplexTrigger.GetParser()
+    let complex2, _ =
+        try
+            parser.Run(Parsing.Stream.FromString repr)
+        with
+        | :? Parsing.ParseError as err ->
+            Parsing.printParseError err
+            |> String.concat "\n"
+            |> eprintfn "%s"
+            failwith "Unexpected parse error"
+    Assert.AreEqual(complex.Wrapped, complex2)
+
+[<Test>]
+let ``T.MCU_TR_ComplexTrigger with events can be dumped and parsed again``() =
+    let onEvents =
+        T.MCU_TR_ComplexTrigger.OnEvents.Default.SetOnEvent[T.MCU_TR_ComplexTrigger.OnEvents.OnEvent.Default]
+    let complex =
+        T.MCU_TR_ComplexTrigger.Default
+            .SetOnEvents(Some onEvents)
+    let repr = complex.AsString()
+    printfn "%s" repr
     let parser = T.MCU_TR_ComplexTrigger.GetParser()
     let complex2, _ =
         try
