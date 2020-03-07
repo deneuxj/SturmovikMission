@@ -91,35 +91,41 @@ module internal ExprExtensions =
             let asEnum = Expr.Convert<System.Collections.IEnumerable>(e)
             <@
                 let asEnum = %asEnum
-                let kvpTyp = typedefof<KeyValuePair<_, _>>
-                let getKey =
-                    let propKey = kvpTyp.GetProperty("Key")
-                    fun (kvp : obj) -> propKey.GetValue(kvp) :?> 'Key
-                let getValue =
-                    let propKey = kvpTyp.GetProperty("Value")
-                    fun (kvp : obj) -> propKey.GetValue(kvp) :?> 'TargetType
-                seq {
-                    for kvp in asEnum do
-                        yield getKey kvp, getValue kvp
-                }
-                |> Map.ofSeq
-            @> : Expr<Map<'Key, 'TargetType>>
+                let it = asEnum.GetEnumerator()
+                if not(it.MoveNext()) then
+                    Map.empty : Map<'Key, 'TargetType>
+                else
+                    let kvpTyp = it.Current.GetType()
+                    let getKey =
+                        let propKey = kvpTyp.GetProperty("Key")
+                        fun (kvp : obj) -> propKey.GetValue(kvp) :?> 'Key
+                    let getValue =
+                        let propVal = kvpTyp.GetProperty("Value")
+                        fun (kvp : obj) -> propVal.GetValue(kvp) :?> 'TargetType
+                    seq {
+                        for kvp in asEnum do
+                            yield getKey kvp, getValue kvp
+                    }
+                    |> Map.ofSeq
+            @>
 
         /// Convert a raw expression representing an option of a generated type to a 'TargetType option
         static member ConvertOpt<'TargetType>(e : Expr) =
             // Same principle used in ConvertMap
             let asObj = Expr.Convert<obj>(e)
             <@
-                let asObj = %asObj
-                let optTyp = typedefof<_ option>
-                let isSome =
-                    let propKey = optTyp.GetProperty("IsSome")
-                    fun (opt : obj) -> unbox<bool>(propKey.GetValue(opt))
-                let getValue =
-                    let propKey = optTyp.GetProperty("Value")
-                    fun (opt : obj) -> propKey.GetValue(opt) :?> 'TargetType
-                if isSome asObj then
-                    Some(getValue asObj)
-                else
-                    None
+                match %asObj with
+                | null -> None : 'TargetType option
+                | asObj ->
+                    let optTyp = asObj.GetType()
+                    let isSome =
+                        let propIsSome = optTyp.GetProperty("IsSome")
+                        fun (opt : obj) -> propIsSome.GetValue(opt) :?> bool
+                    let getValue =
+                        let propValue = optTyp.GetProperty("Value")
+                        fun (opt : obj) -> propValue.GetValue(opt) :?> 'TargetType
+                    if isSome asObj then
+                        Some(getValue asObj)
+                    else
+                        None
             @>
