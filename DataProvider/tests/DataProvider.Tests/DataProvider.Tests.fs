@@ -72,3 +72,32 @@ let ``GroupData.CreateMcuList does not create a compile-time type mismatch``() =
 [<Test>]
 let ``T.Boolean default value can be retrieved``() =
     Assert.DoesNotThrow(fun () -> let x : T.Boolean = T.Boolean.Default in ())
+
+// asMcu
+[<Test>]
+let ``Complex trigger can be converted to MCU, dumped, and parsed again``() =
+    let complex = T.MCU_TR_ComplexTrigger.Default
+    let repr = complex.AsString()
+    let mcu = complex.CreateMcu()
+    let repr2 = mcu.AsString()
+    printfn "%s" repr
+    Assert.AreEqual(repr, repr2)
+    let parser = T.MCU_TR_ComplexTrigger.GetParser()
+    let complex2, _ =
+        try
+            parser.Run(Parsing.Stream.FromString repr)
+        with
+        | :? Parsing.ParseError as err ->
+            Parsing.printParseError err
+            |> String.concat "\n"
+            |> eprintfn "%s"
+            failwith "Unexpected parse error"
+    Assert.AreEqual(complex.Wrapped, complex2)
+
+// asMcuList
+
+// xxx.Parse
+
+// GroupData.Parse
+
+// ListOfxxx
