@@ -105,12 +105,12 @@ and tryParseAsMapping (s : Stream) =
                     kinds
                     |> List.fold (fun unified kind ->
                         match unified with
-                        | Choice2Of2 err as v -> v
-                        | Choice1Of2 unified ->
-                            Unification.tryUnify(unified, kind)) (Choice1Of2 kind)
+                        | Error err as v -> v
+                        | Ok unified ->
+                            Unification.tryUnify(unified, kind)) (Ok kind)
                 match unified with
-                | Choice2Of2 _ -> None
-                | Choice1Of2 unified -> Some(ValueType.Mapping unified, s)
+                | Error _ -> None
+                | Ok unified -> Some(ValueType.Mapping unified, s)
             | Some ([], s2) ->
                 // We got an empty mapping... No way to guess what kind is its content
                 None
@@ -148,12 +148,12 @@ and tryParseAsList (s : Stream) =
                 kinds
                 |> List.fold (fun unified kind ->
                     match unified with
-                    | Choice2Of2 err as v -> v
-                    | Choice1Of2 unified ->
-                        Unification.tryUnify(unified, kind)) (Choice1Of2 kind)
+                    | Error err as v -> v
+                    | Ok unified ->
+                        Unification.tryUnify(unified, kind)) (Ok kind)
             match unified with
-            | Choice2Of2 _ -> None
-            | Choice1Of2 unified -> Some(ValueType.List unified, s2)
+            | Error _ -> None
+            | Ok unified -> Some(ValueType.List unified, s2)
         | Some ([], s2) ->
             // We got an empty set... No way to guess what kind is its content
             None
