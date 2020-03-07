@@ -8,6 +8,7 @@
   <ItemGroup>
     <None Include="app.config" />
     <Compile Include="DataProvider.Tests.fs" />
+    <Compile Include="McuLibrary.Tests.fs" />
     <None Include="paket.references" />
   </ItemGroup>
   <ItemGroup>
