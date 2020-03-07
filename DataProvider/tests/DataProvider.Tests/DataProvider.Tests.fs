@@ -73,6 +73,42 @@ let ``GroupData.CreateMcuList does not create a compile-time type mismatch``() =
 let ``T.Boolean default value can be retrieved``() =
     Assert.DoesNotThrow(fun () -> let x : T.Boolean = T.Boolean.Default in ())
 
+[<Test>]
+let ``Type of complex triggers is properly inferred``() =
+    let vt = T.MCU_TR_ComplexTrigger.AstType
+    printfn "%A" vt
+    match vt with
+    | Ast.ValueType.Composite fields ->
+        Assert.IsTrue(fields.ContainsKey "Enabled")
+        match fields.TryFind "Enabled" with
+        | Some(ft, multMin, multMax) ->
+            Assert.AreEqual(Ast.ValueType.Boolean, ft)
+            Assert.AreEqual(Ast.MinMultiplicity.MinOne, multMin)
+            Assert.AreEqual(Ast.MaxMultiplicity.MaxOne, multMax)
+        | None ->
+            ()
+
+        Assert.IsTrue(fields.ContainsKey "OnEvents")
+        match fields.TryFind "OnEvents" with
+        | Some (ft, multMin, multMax) ->
+            match ft with
+            | Ast.ValueType.Composite oneField ->
+                Assert.AreEqual(1, oneField.Count)
+                match oneField.TryFind "OnEvent" with
+                | Some (_, multMin, multMax) ->
+                    Assert.AreEqual(Ast.MinMultiplicity.MinOne, multMin, "OnEvent should appear at least once in OnEvents")
+                    Assert.AreEqual(Ast.MaxMultiplicity.Multiple, multMax, "OnEvent should be allowed to appear multiple times")
+                | None ->
+                    Assert.Fail("OneEvents lacks field OnEvent")
+            | _ ->
+                Assert.Fail("OnEvents is not a composite")
+            Assert.AreEqual(Ast.MinMultiplicity.Zero, multMin, "OnEvents should be optional")
+            Assert.AreEqual(Ast.MaxMultiplicity.MaxOne, multMax, "OnEvents should appear at most once")
+        | None ->
+            Assert.Fail("Component OnEvents is missing")
+    | _ ->
+        Assert.Fail("Complex trigger MCU is not a composite")
+
 // asMcu
 [<Test>]
 let ``Complex trigger can be converted to MCU, dumped, and parsed again``() =
