@@ -111,21 +111,33 @@ module internal ExprExtensions =
 
         /// Convert a raw expression representing an option of a generated type to a 'TargetType option
         static member ConvertOpt<'TargetType>(e : Expr) =
-            // Same principle used in ConvertMap
-            let asObj = Expr.Convert<obj>(e)
-            <@
-                match %asObj with
-                | null -> None : 'TargetType option
-                | asObj ->
-                    let optTyp = asObj.GetType()
-                    let isSome =
-                        let propIsSome = optTyp.GetProperty("IsSome")
-                        fun (opt : obj) -> propIsSome.GetValue(opt) :?> bool
-                    let getValue =
-                        let propValue = optTyp.GetProperty("Value")
-                        fun (opt : obj) -> propValue.GetValue(opt) :?> 'TargetType
-                    if isSome asObj then
-                        Some(getValue asObj)
-                    else
-                        None
-            @>
+            let optTyp = e.Type
+            let propIsSome = optTyp.GetProperty("IsSome")
+            let propValue = optTyp.GetProperty("Value")
+            let propNone = typeof<'TargetType option>.GetProperty("None")
+            let eVar = Quotations.Var("e", optTyp)
+            // let e = %e in
+            Expr.Let(eVar, e,
+                // if e.IsSome
+                Expr.IfThenElse(
+                    Expr.PropertyGetUnchecked(propIsSome, [Expr.Var eVar]),
+                    // then Some(e.Value :> 'TargetType)
+                    Expr.CallUnchecked(
+                        // Some
+                        typeof<'TargetType option>.GetMethod("Some"),
+                        [
+                            // e :> 'TargetType
+                            Expr.Coerce(
+                                Expr.PropertyGetUnchecked(propValue, [Expr.Var eVar]),
+                                typeof<'TargetType>
+                            )
+                        ]
+                    ),
+                    // else
+                    Expr.PropertyGetUnchecked(
+                        // None
+                        propNone, []
+                    )
+                )
+            )
+            |> Expr.Cast<'TargetType option>
