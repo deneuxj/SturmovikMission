@@ -17,7 +17,7 @@
 //
 //
 
-module SturmovikMission.DataProvider.McuLibraryTest
+module SturmovikMission.DataProvider.Test
 
 open SturmovikMissionTypes
 open NUnit.Framework
