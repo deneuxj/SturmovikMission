@@ -31,7 +31,7 @@ references
 	McuLibrary.dll
 dependencies
   FSharp.Core >= LOCKEDVERSION
-  FsPicker
+  FsPickler >= LOCKEDVERSION
   
 # put any package references here
 #  Some.Package
