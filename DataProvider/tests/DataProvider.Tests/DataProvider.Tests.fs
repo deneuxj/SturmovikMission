@@ -150,10 +150,24 @@ let ``T.MCU_TR_ComplexTrigger with events can be dumped and parsed again``() =
             failwith "Unexpected parse error"
     Assert.AreEqual(complex.Wrapped, complex2)
 
-// asMcuList
-
-// xxx.Parse
+[<Test>]
+let ``T.GroupData can create lists of MCUs``() =
+    let timers =
+        [
+            T.MCU_Timer.Default.SetIndex(T.Integer.N 1)
+            T.MCU_Timer.Default.SetIndex(T.Integer.N 2)
+            T.MCU_Timer.Default.SetIndex(T.Integer.N 3)
+        ]
+    let values =
+        timers
+        |> List.map (fun timer -> Ast.Data.Leaf("MCU_Timer", timer.Wrapped))
+    let group = T.GroupData(values)
+    Assert.DoesNotThrow(fun () -> group.CreateMcuList() |> ignore)
+    let mcus = group.CreateMcuList()
+    Assert.AreEqual(timers.Length, mcus.Length, "List of MCUs should contain the correct number of elements")
+    for mcu in mcus do
+        printfn "%s" (mcu.AsString())
+    let timers2 = group.ListOfMCU_Timer
+    Assert.AreEqual(timers.Length, timers2.Length, "ListOfMCU_Timer should contain the correct number of elements")
 
 // GroupData.Parse
-
-// ListOfxxx
