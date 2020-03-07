@@ -142,6 +142,10 @@ module internal Internal =
 
         let asList this = <@ (%%this : Ast.Value).GetItems() @>
 
+        /// Add static property AstType to a generated type. It returns the ValueType.
+        let addAstValueTypeProperty (ptyp : ProvidedTypeDefinition, vt : Ast.ValueType) =
+            ptyp.AddMember(pdb.NewStaticProperty("AstType", typeof<Ast.ValueType>, vt.ToExpr()))
+
         // Builders for the ground types
 
         let ptypBoolean =
@@ -149,6 +153,7 @@ module internal Internal =
             ptyp.AddMember(pdb.NewProperty("Value", typeof<bool>, fun this -> <@@ (%this : Ast.Value).GetBool() @@>))
             ptyp.AddMember(pdb.NewNamedConstructor("N", ptyp, [("value", typeof<bool>)], fun args -> let value = args.[0] in <@ Ast.Value.Boolean (%%value : bool) @>))
             ptyp.AddMember(pdb.NewNamedConstructor("Default", ptyp, [], fun _ -> <@ Ast.Value.Boolean false @>))
+            addAstValueTypeProperty(ptyp, Ast.ValueType.Boolean)
             ptyp
 
         let ptypFloat =
@@ -156,6 +161,7 @@ module internal Internal =
             ptyp.AddMember(pdb.NewProperty("Value", typeof<float>, fun this -> <@@ (%this : Ast.Value).GetFloat() @@>))
             ptyp.AddMember(pdb.NewNamedConstructor("N", ptyp, [("value", typeof<float>)], fun args -> let value = args.[0] in <@ Ast.Value.Float (%%value : float) @>))
             ptyp.AddMember(pdb.NewNamedConstructor("Default", ptyp, [], fun _ -> <@ Ast.Value.Float 0.0 @>))
+            addAstValueTypeProperty(ptyp, Ast.ValueType.Float)
             ptyp
 
         let ptypFloatPair =
@@ -163,6 +169,7 @@ module internal Internal =
             ptyp.AddMember(pdb.NewProperty("Value", typeof<float * float>, fun this -> <@@ (%this : Ast.Value).GetFloatPair() @@>))
             ptyp.AddMember(pdb.NewNamedConstructor("N", ptyp, [("value", typeof<float * float>)], fun args -> let value = args.[0] in <@ let x, y = (%%value : float * float) in Ast.Value.FloatPair(x, y) @>))
             ptyp.AddMember(pdb.NewNamedConstructor("Default", ptyp, [], fun _ -> <@ Ast.Value.FloatPair(0.0, 0.0) @>))
+            addAstValueTypeProperty(ptyp, Ast.ValueType.FloatPair)
             ptyp
 
         let ptypInteger =
@@ -170,6 +177,7 @@ module internal Internal =
             ptyp.AddMember(pdb.NewProperty("Value", typeof<int>, fun this -> <@@ (%this : Ast.Value).GetInteger() @@>))
             ptyp.AddMember(pdb.NewNamedConstructor("N", ptyp, [("value", typeof<int>)], fun args -> let value = args.[0] in <@ Ast.Value.Integer (%%value : int) @>))
             ptyp.AddMember(pdb.NewNamedConstructor("Default", ptyp, [], fun _ -> <@ Ast.Value.Integer 0 @>))
+            addAstValueTypeProperty(ptyp, Ast.ValueType.Integer)
             ptyp
 
         let ptypString =
@@ -177,6 +185,7 @@ module internal Internal =
             ptyp.AddMember(pdb.NewProperty("Value", typeof<string>, fun this -> <@@ (%this : Ast.Value).GetString() @@>))
             ptyp.AddMember(pdb.NewNamedConstructor("N", ptyp, [("value", typeof<string>)], fun args -> let value = args.[0] in <@ Ast.Value.String (%%value : string) @>))
             ptyp.AddMember(pdb.NewNamedConstructor("Default", ptyp, [], fun _ -> <@ Ast.Value.String "" @>))
+            addAstValueTypeProperty(ptyp, Ast.ValueType.String)
             ptyp
 
         let ptypIntVector =
@@ -184,6 +193,7 @@ module internal Internal =
             ptyp.AddMember(pdb.NewProperty("Value", typeof<int list>, fun this -> <@@ (%this : Ast.Value).GetIntVector() @@>))
             ptyp.AddMember(pdb.NewNamedConstructor("N", ptyp, [("value", typeof<int list>)], fun args -> let value = args.[0] in <@ Ast.Value.IntVector (%%value : int list) @>))
             ptyp.AddMember(pdb.NewNamedConstructor("Default", ptyp, [], fun _ -> <@ Ast.Value.IntVector [] @>))
+            addAstValueTypeProperty(ptyp, Ast.ValueType.IntVector)
             ptyp
 
         let ptypDate =
@@ -206,6 +216,7 @@ module internal Internal =
                     | [day; month; year] ->
                         <@ Ast.Value.Date((%%day : int), (%%month : int), (%%year : int)) @>
                     | _ -> failwith "Unmatched list of parameters and list of arguments"))
+            addAstValueTypeProperty(ptyp, Ast.ValueType.Date)
             ptyp
 
         let addComplexNestedType(ptyp : ProvidedTypeDefinition, subpTyp : ProvidedTypeDefinition, kind) =
@@ -331,10 +342,11 @@ module internal Internal =
                         )
                         // Result
                         ptyp
-                // Add a default constructor, unless it's a ground type (it's already got one)
+                // Add a default constructor and the value type property, unless it's a ground type (it's already got those)
                 if not (Ast.isGroundType typId.Kind) then
                     let kind = typId.Kind.ToExpr()
                     ptyp.AddMember(pdb.NewNamedConstructor("Default", ptyp, [], fun _ -> <@ Ast.defaultValue %kind @>))
+                    addAstValueTypeProperty(ptyp, typId.Kind)
                 ptyp
             finally
                 logInfo <| sprintf "Done building provided type for %s" typId.Name
