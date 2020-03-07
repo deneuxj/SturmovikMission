@@ -170,4 +170,24 @@ let ``T.GroupData can create lists of MCUs``() =
     let timers2 = group.ListOfMCU_Timer
     Assert.AreEqual(timers.Length, timers2.Length, "ListOfMCU_Timer should contain the correct number of elements")
 
-// GroupData.Parse
+[<Test>]
+let ``T.GroupData can parse files``() =
+    let timers =
+        [
+            T.MCU_Timer.Default.SetIndex(T.Integer.N 1)
+            T.MCU_Timer.Default.SetIndex(T.Integer.N 2)
+            T.MCU_Timer.Default.SetIndex(T.Integer.N 3)
+        ]
+    let repr =
+        timers
+        |> Seq.map (fun timer -> timer.AsString())
+        |> String.concat "\n"
+    let s = Parsing.Stream.FromString repr
+    Assert.DoesNotThrow(fun () -> T.GroupData.Parse(s) |> ignore)
+    let group = T.GroupData.Parse(s)
+    let mcus = group.CreateMcuList()
+    Assert.AreEqual(timers.Length, mcus.Length, "List of MCUs should contain the correct number of elements")
+    for mcu in mcus do
+        printfn "%s" (mcu.AsString())
+    let timers2 = group.ListOfMCU_Timer
+    Assert.AreEqual(timers.Length, timers2.Length, "ListOfMCU_Timer should contain the correct number of elements")
