@@ -430,7 +430,6 @@ MCU_TR_ComplexTrigger
   YOri = 0.00;
   ZOri = 0.00;
   Enabled = 1;
-  Enabled = 1;
   Cylinder = 1;
   Radius = 1000;
   DamageThreshold = 1;
@@ -2384,7 +2383,6 @@ MCU_TR_ComplexTrigger
   XOri = 0.00;
   YOri = 0.00;
   ZOri = 0.00;
-  Enabled = 1;
   Enabled = 1;
   Cylinder = 1;
   Radius = 1000;

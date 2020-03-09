@@ -4,13 +4,13 @@
   <PropertyGroup>
     <OutputType>Library</OutputType>
     <TargetFrameworks>netstandard2.0;netcoreapp3.1;net45</TargetFrameworks>
-    <Optimize>true</Optimize>
+    <Optimize>false</Optimize>
     <Tailcalls>true</Tailcalls>
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
     <RestoreProjectStyle>PackageReference</RestoreProjectStyle>
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
     <AssemblyName>SturmovikMission.DataProvider.DesignTime</AssemblyName>
-    <Version>6.0.1</Version>
+    <Version>7.0.0</Version>
     <Authors>Johann Deneux &lt;johann.deneux@gmail.com&gt;</Authors>
     <Product>SturmovikMission.DataProvider</Product>
     <Copyright>Copyright 2018-2020 Johann Deneux</Copyright>
@@ -27,6 +27,9 @@
       <Paket>True</Paket>
       <Link>paket-files/ProvidedTypes.fs</Link>
     </Compile>
+    <Compile Include="ProvidedDataBuilder.fs" />
+    <Compile Include="ReflectionAccess.fs" />
+    <Compile Include="Expr.fs" />
     <Compile Include="UniqueNames.fs" />
     <Compile Include="FileWithTime.fs" />
     <Compile Include="Logging.fs" />
@@ -34,6 +37,7 @@
     <Compile Include="..\DataProvider.Runtime\Parsing.fs" Link="Parsing.fs" />
     <Compile Include="..\DataProvider.Runtime\AutoSchema.fs" Link="AutoSchema.fs" />
     <Compile Include="..\DataProvider.Runtime\McuFactory.fs" Link="McuFactory.fs" />
+    <Compile Include="..\DataProvider.Runtime\ValueWrapper.fs" Link="ValueWrapper.fs" />
     <Compile Include="DataProvider.DesignTime.fs" />
     <None Include="paket.references" />
     <None Include="..\..\packages\NETStandard.Library.NETFramework\build\net461\lib\netstandard.dll" Condition="'$(TargetFramework)' == 'net45'">

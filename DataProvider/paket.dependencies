@@ -5,6 +5,7 @@ frameworks: net45, netcoreapp3.1, netstandard2.0
 
 # Add the nuget packages you use here
 nuget FSharp.Core 4.3.4
+nuget FsPickler >= 5.3.2
 
 nuget NETStandard.Library.NETFramework
 # nuget System.Text.Encoding.CodePages

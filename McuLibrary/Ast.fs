@@ -18,10 +18,6 @@
 
 module SturmovikMission.DataProvider.Ast
 
-open System.Collections.Generic
-open SturmovikMission.Cached
-
-
 type MinMultiplicity = Zero | MinOne
 with
     member this.ToExpr() =
@@ -35,7 +31,7 @@ with
         match this with
         | MaxOne -> <@ MaxOne @>
         | Multiple -> <@ Multiple @>
-            
+
 let least =
     function
     | Zero, _
@@ -77,37 +73,6 @@ let (|NameOfGroundType|_|) x =
     Seq.zip groundValueTypes groundValueTypeNames
     |> Seq.tryFind(fun (t, n) -> x = t)
     |> Option.map snd
-
-let private valueTypeToExprCache = new Dictionary<ValueType, Quotations.Expr<ValueType>>(HashIdentity.Structural)
-
-let rec buildExprFromValueType expr =
-    match expr with
-    | Boolean -> <@ Boolean @>
-    | Integer -> <@ Integer @>
-    | String -> <@ String @>
-    | Float  -> <@ Float @>
-    | Date -> <@ Date @>
-    | IntVector -> <@ IntVector @>
-    | Mapping vt -> <@ Mapping %(getExprOfValueType vt) @>
-    | List vt -> <@ List %(getExprOfValueType vt) @>
-    | Pair (p1, p2) -> <@ Pair(%(getExprOfValueType p1), %(getExprOfValueType p2)) @>
-    | Triplet (p1, p2, p3) -> <@ Triplet(%(getExprOfValueType p1), %(getExprOfValueType p2), %(getExprOfValueType p3)) @>
-    | FloatPair -> <@ FloatPair @>
-    | Composite defs ->
-        let defs =
-            defs
-            |> Map.toList
-            |> List.fold (
-                fun e (name, (t, m, M)) ->
-                    let item = <@ name, (%(getExprOfValueType t), %(m.ToExpr()), %(M.ToExpr())) @>
-                    <@ Map.add (fst %item) (snd %item) %e @>) <@ Map.empty @>                            
-        <@ Composite %defs @>
-
-and getExprOfValueType expr =
-    cached valueTypeToExprCache buildExprFromValueType expr
-
-type ValueType
-    with member this.ToExpr() = getExprOfValueType this
 
 type Value =
     | Boolean of bool
@@ -242,60 +207,64 @@ with
         | IntVector _ -> IntVector []
         | _ -> invalidOp "Not a Mapping, Set or IntVector"
 
-    member this.ToExpr() =
-        match this with
-        | Boolean x -> <@ Boolean x @>
-        | Integer x -> <@ Integer x @>
-        | Float x -> <@ Float x @>
-        | FloatPair(x, y) -> <@ FloatPair(x, y) @>
-        | String x -> <@ String x @>
-        | Date(x, y, z) -> <@ Date(x, y, z) @>
-        | IntVector x ->
-            x
-            |> List.rev
-            |> List.fold (fun expr n -> <@ n :: %expr @>) <@ [] @>
-            |> fun xs -> <@ IntVector %xs @>
-        | Mapping x ->
-            x
-            |> List.fold (fun expr (n, value) -> <@ (n, %(value.ToExpr())) :: %expr @>) <@ [] @>
-            |> fun xs -> <@ Mapping %xs @>
-        | List x ->
-            x
-            |> List.fold (fun expr value -> <@ %(value.ToExpr()) :: %expr @>) <@ [] @>
-            |> fun xs -> <@ List %xs @>
-        | Pair(x1, x2) ->
-            <@ Pair(%x1.ToExpr(), %x2.ToExpr()) @>
-        | Triplet(x1, x2, x3) ->
-            <@ Triplet(%x1.ToExpr(), %x2.ToExpr(), %x3.ToExpr()) @>
-        | Composite fields ->
-            fields
-            |> List.rev
-            |> List.fold (fun expr (name, value) -> <@ (name, %value.ToExpr()) :: %expr @>) <@ [] @>
-            |> fun xs -> <@ Composite %xs @>
+let validateFieldMultiplicities(v : Value, vt : ValueType) =
+    let check (mmin, mmax, n) =
+        let minOk =
+            match mmin with
+            | Zero -> true
+            | MinOne -> n >= 1
+        let maxOk =
+            match mmax with
+            | MaxOne -> n <= 1
+            | Multiple -> true
+        minOk && maxOk
 
-let rec defaultExprValue (typ : ValueType) =
+    match v, vt with
+    | Value.Composite values, ValueType.Composite fields ->
+        let occurrences =
+            values
+            |> Seq.groupBy fst
+            |> Seq.map (fun (fieldName, xs) -> fieldName, Seq.length xs)
+            |> Map.ofSeq
+        seq {
+            for name, (_, mmin, mmax) in Map.toSeq fields do
+                let occ = occurrences.TryFind name |> Option.defaultValue 0
+                if not(check(mmin, mmax, occ)) then
+                    yield sprintf "Incorrect occurrence of %s, %d is not within %A and %A" name occ mmin mmax
+            for name, occ in Map.toSeq occurrences do
+                if not(fields.ContainsKey name) && occ > 0 then
+                    yield sprintf "Unexpected field %s appears %d times" name occ
+        }
+        |> Seq.fold (fun (res : Result<string, string>) error ->
+            match res with
+            | Ok _ -> Error error
+            | Error msg1 -> Error (msg1 + "; " + error)) (Ok "Occurrences in composite are all within constraints")
+    | _ ->
+        Ok "Occurrences in non-composite type were not checked"
+
+let rec defaultValue (typ : ValueType) =
     match typ with
-    | ValueType.Boolean -> <@ Boolean false @>
-    | ValueType.Integer -> <@ Integer 0 @>
-    | ValueType.String -> <@ String "" @>
-    | ValueType.Float -> <@ Float 0.0 @>
+    | ValueType.Boolean -> Boolean false
+    | ValueType.Integer -> Integer 0
+    | ValueType.String -> String ""
+    | ValueType.Float -> Float 0.0
     | ValueType.Composite m ->
         m
         |> Map.toList
         |> List.choose (fun (name, (typ, minMult, maxMult)) ->
             match minMult, maxMult with
-            | MinOne, MaxOne -> Some (<@ name, (%defaultExprValue typ) @>)
+            | MinOne, MaxOne -> Some (name, defaultValue typ)
             | Zero, _ -> None
-            | MinOne, Multiple -> Some (<@ name, List [(%defaultExprValue typ)] @>))
-        |> List.fold (fun e x -> <@ %x :: %e @>) <@ [] @>
-        |> fun xs -> <@ Composite %xs @>
-    | ValueType.Mapping _ -> <@ Mapping [] @>
-    | ValueType.List _ -> <@ List [] @>
-    | ValueType.IntVector _ -> <@ IntVector [] @>
-    | ValueType.Pair (t1, t2) -> <@ Pair((%defaultExprValue t1), (%defaultExprValue t2)) @>
-    | ValueType.Triplet (t1, t2, t3) -> <@ Triplet((%defaultExprValue t1), (%defaultExprValue t2), (%defaultExprValue t3)) @>
-    | ValueType.FloatPair -> <@ FloatPair(0.0, 0.0) @>
-    | ValueType.Date -> <@ Date(1900, 1, 1) @>
+            | MinOne, Multiple -> Some (name, List [defaultValue typ]))
+        |> List.fold (fun e x -> x :: e) []
+        |> fun xs -> Composite xs
+    | ValueType.Mapping _ -> Mapping []
+    | ValueType.List _ -> List []
+    | ValueType.IntVector _ -> IntVector []
+    | ValueType.Pair (t1, t2) -> Pair(defaultValue t1, defaultValue t2)
+    | ValueType.Triplet (t1, t2, t3) -> Triplet(defaultValue t1, defaultValue t2, defaultValue t3)
+    | ValueType.FloatPair -> FloatPair(0.0, 0.0)
+    | ValueType.Date -> Date(1900, 1, 1)
 
 let rec dump (value : Value) : string =
     match value with
@@ -408,23 +377,4 @@ type Data with
                 else
                     []
 
-    member this.ToExpr() =
-        match this with
-        | Leaf(name, value) ->
-            let e = value.ToExpr()
-            <@ Leaf(name, %e) @>
-        | Group(data) ->
-            let subs =
-                data.Data
-                |> List.rev
-                |> List.fold(fun expr data -> <@ %(data.ToExpr()) :: %expr @>) <@ [] @>
-            let name = data.Name
-            let index = data.Index
-            let desc = data.Description
-            <@ Group
-                { Name = name
-                  Index = index
-                  Description = desc
-                  Data = %subs
-                } @>
 
