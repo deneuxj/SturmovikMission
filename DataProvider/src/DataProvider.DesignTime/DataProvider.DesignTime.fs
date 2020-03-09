@@ -738,8 +738,8 @@ type MissionTypes(config: TypeProviderConfig) as this =
     do assert (typeof<Parsing.Stream>.Assembly.GetName().Name = asm.GetName().Name)  
 
     let buildProvider (enableLogging : bool) (typeName : string, sample : string) =
-        if not(String.IsNullOrWhiteSpace(System.Environment.GetEnvironmentVariable("TP_DEBUG"))) then
-            System.Diagnostics.Debugger.Launch() |> ignore
+        //if not(String.IsNullOrWhiteSpace(System.Environment.GetEnvironmentVariable("TP_DEBUG"))) then
+        //    System.Diagnostics.Debugger.Launch() |> ignore
 
         let asm = ProvidedAssembly()
         let logInfo, closeLog =
