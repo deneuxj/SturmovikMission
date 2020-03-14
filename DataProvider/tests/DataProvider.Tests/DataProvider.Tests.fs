@@ -191,3 +191,14 @@ let ``T.GroupData can parse files``() =
         printfn "%s" (mcu.AsString())
     let timers2 = group.ListOfMCU_Timer
     Assert.AreEqual(timers.Length, timers2.Length, "ListOfMCU_Timer should contain the correct number of elements")
+
+[<Test>]
+let ``T.Airfield has functional getters``() =
+    let planes =
+        [
+            T.Airfield.Planes.Plane.Default
+        ]
+    let planes = T.Airfield.Planes.Default.SetPlane(planes)
+    let airfield = T.Airfield.Default.SetPlanes(planes)
+    let read = airfield.GetPlanes()
+    Assert.AreEqual(planes.Wrapped, read.Wrapped)
