@@ -39,14 +39,14 @@ module internal AstExtensions =
             let serializer = XmlSerializer()
             serializer.Deserialize<ValueType>(reader)
         @>
-        
+
     let getExprOfValueType expr =
         Cached.cached valueTypeToExprCache buildExprFromValueType expr
 
     type ValueType with
         /// Serialize a ValueType and return an expression that deserializes that.
         member this.ToExpr() = getExprOfValueType this
-        
+
         /// Serialize a mapping from arbitrary keys to ValueType, and return an expression that deserializes that.
         static member MapToExpr(mapping : Map<'K, ValueType>) : Expr<Map<'K, ValueType>> =
             use writer = new System.IO.StringWriter()
@@ -58,6 +58,10 @@ module internal AstExtensions =
                 let serializer = XmlSerializer()
                 serializer.Deserialize<Map<'K, ValueType>>(reader)
             @>
+
+/// A type whose sole purpose is to mark places in quotation expressions to replace with other expressions
+type PlaceHolder<'T>(x : 'T) =
+    do()
 
 module internal ExprExtensions =
     open FSharp.Quotations
@@ -144,3 +148,38 @@ module internal ExprExtensions =
                 )
             )
             |> Expr.Cast<'TargetType option>
+
+        /// Replace constructor calls to PlaceHolder(x) by a given single-argument constructor call
+        member this.ReplacePlaceHolderConstruction(ci : System.Reflection.ConstructorInfo) =
+            System.Diagnostics.Debugger.Launch() |> ignore
+            let rec work(expr, cont) =
+                match expr with
+                | Patterns.NewObject(op, args) ->
+                    workArgs(args, [], fun args ->
+                        if op.DeclaringType.GetGenericTypeDefinition() = typedefof<PlaceHolder<_>> then
+                            Expr.NewObjectUnchecked(ci, args)
+                            |> cont
+                        else
+                            Expr.NewObject(op, args)
+                            |> cont)
+                | ShapeCombinationUnchecked(rebuild, args) ->
+                    workArgs(args, [], fun args ->
+                        RebuildShapeCombinationUnchecked(rebuild, args)
+                        |> cont)
+                | ShapeLambdaUnchecked(var, expr) ->
+                    work(expr, fun expr ->
+                        Expr.Lambda(var, expr)
+                        |> cont)
+                | ShapeVarUnchecked v ->
+                    Expr.Var v
+                    |> cont
+
+            and workArgs(todo, ready, cont) =
+                match todo with
+                | [] ->
+                    List.rev ready |> cont
+                | x :: xs ->
+                    work (x, fun x -> workArgs(xs, x :: ready, cont))
+
+            let res = work(this, id)
+            res

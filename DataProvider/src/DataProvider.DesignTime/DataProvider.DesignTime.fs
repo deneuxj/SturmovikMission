@@ -32,6 +32,7 @@ open SturmovikMission.ProvidedDataBuilder
 module internal Internal =
     open SturmovikMission.Expr.ExprExtensions
     open SturmovikMission.Expr.AstExtensions
+    open SturmovikMission.Expr
 
     [<AutoOpen>]
     module AstValueWrapperTypeBuildingHelpers =
@@ -416,6 +417,8 @@ module internal Internal =
                 fun fieldName (def, minMult, maxMult) ->
                     let fieldType =
                         getProvidedType { Name = fieldName; Kind = def; Parents = parents }
+                    let constructor = fieldType.GetConstructor([| typeof<Ast.Value> |])
+                    let fixup (e : Expr) = e.ReplacePlaceHolderConstruction(constructor)
                     match (minMult, maxMult) with
                     | Ast.MinMultiplicity.MinOne, Ast.MaxMultiplicity.MaxOne ->
                         pdb.NewMethod(
@@ -426,7 +429,7 @@ module internal Internal =
                                 let e = asList this
                                 <@@
                                     match List.tryFind (fun (name, _) -> name = fieldName) %e with
-                                    | Some (_, value) -> value
+                                    | Some (_, value) -> failwith "" // new PlaceHolder<_>(value)
                                     | None -> failwithf "Field '%s' is not set" fieldName
                                 @@>)
                     | Ast.MinMultiplicity.Zero, Ast.MaxOne ->
@@ -442,7 +445,7 @@ module internal Internal =
                                 let e = asList this
                                 <@@
                                     match List.tryFind (fun (name, _) -> name = fieldName) %e with
-                                    | Some (_, value) -> Some value
+                                    | Some (_, value) -> None // Some(new PlaceHolder<_>(value))
                                     | None -> None
                                 @@>)
                     | _, Ast.MaxMultiplicity.Multiple ->
@@ -458,8 +461,8 @@ module internal Internal =
                                 let e = asList this
                                 <@@
                                     List.filter (fun (name, _) -> name = fieldName) %e
-                                    |> List.map snd
-                                @@>)
+                                    |> List.map (fun (_, x) -> new PlaceHolder<_>(x))
+                                @@> |> fixup)
                 )
             |> Map.toList
             |> List.sortBy fst
