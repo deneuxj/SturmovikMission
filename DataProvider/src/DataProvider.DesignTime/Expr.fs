@@ -28,6 +28,7 @@ module internal AstExtensions =
     let private valueTypeToExprCache = new Dictionary<ValueType, Expr<ValueType>>(HashIdentity.Structural)
     let serializer = XmlSerializer()
 
+    /// Serialize a ValueType and return an expression that deserializes that.
     let buildExprFromValueType (typ : ValueType) =
         use writer = new System.IO.StringWriter()
         serializer.Serialize(writer, typ)
@@ -43,8 +44,10 @@ module internal AstExtensions =
         Cached.cached valueTypeToExprCache buildExprFromValueType expr
 
     type ValueType with
+        /// Serialize a ValueType and return an expression that deserializes that.
         member this.ToExpr() = getExprOfValueType this
         
+        /// Serialize a mapping from arbitrary keys to ValueType, and return an expression that deserializes that.
         static member MapToExpr(mapping : Map<'K, ValueType>) : Expr<Map<'K, ValueType>> =
             use writer = new System.IO.StringWriter()
             serializer.Serialize(writer, mapping)
