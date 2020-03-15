@@ -451,35 +451,55 @@ module internal Internal =
                     | _, Ast.MaxMultiplicity.Multiple ->
                         let listTyp =
                             ProvidedTypeBuilder.MakeGenericType(
-                                typedefof<ICollection<_>>,
+                                typedefof<IEnumerable<_>>,
                                 [fieldType])
                         pdb.NewMethod(
                             sprintf "Get%ss" fieldName,
-                            typeof<Void>,
-                            [("outItems", listTyp)],
-                            fun this ->
-                                function
-                                | [outItems] ->
-                                    let fields = asList this
-                                    let miAdd = listTyp.GetMethod("Add")
-                                    let miMoveNext = typeof<System.Collections.IEnumerator>.GetMethod("MoveNext")
-                                    let miCurrent = typeof<IEnumerator<Ast.Value>>.GetProperty("Current")
-                                    let itVar = Var("it", typeof<IEnumerator<Ast.Value>>)
-                                    Expr.LetUnchecked(itVar, <@ ((%fields) :> IEnumerable<string * Ast.Value>).GetEnumerator() @>,
-                                        Expr.WhileLoop(
-                                            Expr.CallUnchecked(Expr.Var itVar, miMoveNext, []),
-                                            Expr.CallUnchecked(outItems, miAdd, [
-                                                Expr.NewObjectUnchecked(constructor, [
-                                                    Expr.PropertyGetUnchecked(
-                                                        Expr.Var itVar,
-                                                        miCurrent,
-                                                        [])
+                            listTyp,
+                            [],
+                            fun this _ ->
+                                let fields = asList this
+                                let fieldName = Expr.Value(fieldName) |> Expr.Cast<string>
+                                let values =
+                                    <@
+                                        %fields
+                                        |> List.choose (fun (name, x) -> if name = %fieldName then Some x else None)
+                                        :> IEnumerable<Ast.Value>
+                                    @>
+                                let miMoveNext = typeof<System.Collections.IEnumerator>.GetMethod("MoveNext")
+                                let miCurrent = typeof<IEnumerator<Ast.Value>>.GetProperty("Current")
+                                let itVar = Var("it", typeof<IEnumerator<Ast.Value>>)
+                                let auxListTyp = ProvidedTypeBuilder.MakeGenericType(typedefof<ResizeArray<_>>, [fieldType])
+                                let miAdd = auxListTyp.GetMethod("Add")
+                                let miNewAuxList = auxListTyp.GetConstructor([||])
+                                let auxVar = Var("aux", auxListTyp)
+                                // let aux = new ResizeArray<T>()
+                                Expr.LetUnchecked(auxVar, Expr.NewObjectUnchecked(miNewAuxList, []),
+                                    Expr.Sequential(
+                                        // let it = values.GetEnumerator()
+                                        Expr.LetUnchecked(itVar, <@ (%values).GetEnumerator() @>,
+                                            // while
+                                            Expr.WhileLoop(
+                                                // it.MoveNext do 
+                                                Expr.CallUnchecked(Expr.Var itVar, miMoveNext, []),
+                                                // aux.Add
+                                                Expr.CallUnchecked(Expr.Var auxVar, miAdd, [
+                                                    // T(it.Current)
+                                                    Expr.NewObjectUnchecked(constructor, [
+                                                        Expr.PropertyGetUnchecked(
+                                                            Expr.Var itVar,
+                                                            miCurrent,
+                                                            [])
+                                                    ])
                                                 ])
-                                            ])
-                                        )
+                                            )
+                                        ),
+                                        // return aux
+                                        Expr.Coerce(
+                                            Expr.Var(auxVar),
+                                            listTyp)
                                     )
-                                | _ -> failwith "INTERNAL ERROR"
-
+                                )
                         )
                 )
             |> Map.toList

@@ -194,11 +194,13 @@ let ``T.GroupData can parse files``() =
 
 [<Test>]
 let ``T.Airfield has functional getters``() =
-    let planes =
+    let planesList =
         [
             T.Airfield.Planes.Plane.Default
         ]
-    let planes = T.Airfield.Planes.Default.SetPlane(planes)
+    let planes = T.Airfield.Planes.Default.SetPlane(planesList)
+    let outPlanes = planes.GetPlanes()
+    Assert.AreEqual(planesList.Head.Wrapped, Seq.head(outPlanes).Wrapped)
     let airfield = T.Airfield.Default.SetPlanes(planes)
     let read = airfield.GetPlanes()
     Assert.AreEqual(planes.Wrapped, read.Wrapped)
