@@ -17,9 +17,21 @@
 
 namespace SturmovikMission.DataProvider.TypeProvider
 
+open SturmovikMission.DataProvider
+
 /// The base type of all provided types representing objects found in a mission file, wraps an Ast.Value
-type AstValueWrapper(value : SturmovikMission.DataProvider.Ast.Value) =
+type AstValueWrapper(value : Ast.Value) =
     member this.Wrapped = value
+
+/// Helper class to access fields with multiplicity larger than one in composites
+type CompositeFieldAccess<'T>(value : Ast.Value, name, convert) =
+    member this.Items : 'T seq =
+        match value with
+        | Ast.Value.Composite fields ->
+            fields
+            |> Seq.choose (fun (fname, x) -> if name = fname then Some(convert x) else None)
+        | _ ->
+            failwith "Cannot access fields in a non-composite value"
 
 /// The base type of the result of parsing a mission file
 type GroupMembers(items : SturmovikMission.DataProvider.Ast.Data list) =

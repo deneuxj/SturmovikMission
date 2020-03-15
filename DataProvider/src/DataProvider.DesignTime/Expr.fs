@@ -59,10 +59,6 @@ module internal AstExtensions =
                 serializer.Deserialize<Map<'K, ValueType>>(reader)
             @>
 
-/// A type whose sole purpose is to mark places in quotation expressions to replace with other expressions
-type PlaceHolder<'T>(x : 'T) =
-    do()
-
 module internal ExprExtensions =
     open FSharp.Quotations
     open ProviderImplementation.ProvidedTypes.UncheckedQuotations
@@ -148,75 +144,3 @@ module internal ExprExtensions =
                 )
             )
             |> Expr.Cast<'TargetType option>
-
-        /// Replace constructor calls to PlaceHolder(x) by a given single-argument constructor call
-        member this.ReplacePlaceHolderConstruction(ci : System.Reflection.ConstructorInfo) =
-            System.Diagnostics.Debugger.Launch() |> ignore
-
-            let tgtType = ci.DeclaringType
-        
-            let isPlaceHolderType(typ : System.Type) =
-                typ.IsGenericType && typ.GetGenericTypeDefinition() = typedefof<PlaceHolder<_>>
-
-            let remakeType (typ : System.Type) =
-                if typ.IsGenericType then
-                    let genTyp = typ.GetGenericTypeDefinition()
-                    let genArgs =
-                        typ.GetGenericArguments()
-                        |> Array.map (fun typ -> if isPlaceHolderType typ then tgtType else typ)
-                    ProvidedTypeBuilder.MakeGenericType(genTyp, List.ofArray genArgs)
-                else
-                    typ
-
-            let remakeMethod (mi : System.Reflection.MethodInfo) =
-                if mi.IsGenericMethod then
-                    let genDef = mi.GetGenericMethodDefinition()
-                    let genArgs =
-                        mi.GetGenericArguments()
-                        |> Array.map (fun typ -> if isPlaceHolderType typ then tgtType else typ)
-                    ProvidedTypeBuilder.MakeGenericMethod(genDef, List.ofArray genArgs)
-                else
-                    mi
-
-            let rec work(binding, expr, cont) =
-                match expr with
-                | Patterns.NewObject(op, args) ->
-                    workArgs(binding, args, [], fun args ->
-                        let typ = op.DeclaringType
-                        if isPlaceHolderType typ then
-                            Expr.NewObjectUnchecked(ci, args)
-                            |> cont
-                        else
-                            Expr.NewObject(op, args)
-                            |> cont)
-                | Patterns.Call(instance, mi, args) ->
-                    let mi = remakeMethod mi
-                    workArgs(binding, args, [], fun args ->
-                        match instance with
-                        | None -> Expr.CallUnchecked(mi, args)
-                        | Some instance -> Expr.CallUnchecked(instance, mi, args)
-                        |> cont)
-                | ShapeCombinationUnchecked(rebuild, args) ->
-                    workArgs(binding, args, [], fun args ->
-                        RebuildShapeCombinationUnchecked(rebuild, args)
-                        |> cont)
-                | ShapeLambdaUnchecked(var, expr) ->
-                    let var = Var(var.Name, remakeType var.Type, var.IsMutable)
-                    let binding = Map.add var.Name var binding
-                    work(binding, expr, fun expr ->
-                        Expr.Lambda(var, expr)
-                        |> cont)
-                | ShapeVarUnchecked var ->
-                    let var = binding.[var.Name]
-                    Expr.Var var
-                    |> cont
-
-            and workArgs(binding, todo, ready, cont) =
-                match todo with
-                | [] ->
-                    List.rev ready |> cont
-                | x :: xs ->
-                    work (binding, x, fun x -> workArgs(binding, xs, x :: ready, cont))
-
-            let res = work(Map.empty, this, id)
-            res

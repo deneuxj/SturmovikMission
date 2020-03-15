@@ -32,7 +32,7 @@ open SturmovikMission.ProvidedDataBuilder
 module internal Internal =
     open SturmovikMission.Expr.ExprExtensions
     open SturmovikMission.Expr.AstExtensions
-    open SturmovikMission.Expr
+    open UncheckedQuotations
 
     [<AutoOpen>]
     module AstValueWrapperTypeBuildingHelpers =
@@ -417,8 +417,29 @@ module internal Internal =
                 fun fieldName (def, minMult, maxMult) ->
                     let fieldType =
                         getProvidedType { Name = fieldName; Kind = def; Parents = parents }
+
                     let constructor = fieldType.GetConstructor([| typeof<Ast.Value> |])
-                    let fixup (e : Expr) = e.ReplacePlaceHolderConstruction(constructor)
+                    let mkReturnExpr (e : Expr<Ast.Value>) =
+                        Expr.Coerce(
+                            Expr.NewObjectUnchecked(constructor, [ e ]),
+                            fieldType)
+
+                    let mkSeqReturnExpr (e : Expr<Ast.Value seq>) =
+                        let itVar = Var("it", typeof<System.Collections.Generic.IEnumerator<Ast.Value>>)
+                        let varRef = Expr.Var itVar |> Expr.Cast<System.Collections.Generic.IEnumerator<Ast.Value>>
+                        let newObj =
+                            Expr.Coerce(
+                                Expr.NewObjectUnchecked(constructor, [ <@@ (%varRef).Current @@> ]),
+                                fieldType)
+                        Expr.LetUnchecked(itVar, <@@ (%e).GetEnumerator() @@>,
+                            <@@
+                                seq {
+                                    while (%varRef).MoveNext() do
+                                        yield %%newObj
+                                }
+                            @@>
+                        )
+
                     match (minMult, maxMult) with
                     | Ast.MinMultiplicity.MinOne, Ast.MaxMultiplicity.MaxOne ->
                         pdb.NewMethod(
@@ -427,42 +448,57 @@ module internal Internal =
                             [],
                             fun this _ ->
                                 let e = asList this
-                                <@@
+                                <@
                                     match List.tryFind (fun (name, _) -> name = fieldName) %e with
-                                    | Some (_, value) -> failwith "" // new PlaceHolder<_>(value)
+                                    | Some (_, value) -> value
                                     | None -> failwithf "Field '%s' is not set" fieldName
-                                @@>)
+                                @>
+                                |> mkReturnExpr)
                     | Ast.MinMultiplicity.Zero, Ast.MaxOne ->
-                        let optTyp =
-                            ProvidedTypeBuilder.MakeGenericType(
-                                typedefof<_ option>,
-                                [fieldType])
                         pdb.NewMethod(
-                            sprintf "TryGet%s" fieldName,
-                            optTyp,
+                            sprintf "Has%s" fieldName,
+                            typeof<bool>,
                             [],
                             fun this _ ->
                                 let e = asList this
                                 <@@
-                                    match List.tryFind (fun (name, _) -> name = fieldName) %e with
-                                    | Some (_, value) -> None // Some(new PlaceHolder<_>(value))
-                                    | None -> None
+                                    List.exists (fun (name, _) -> name = fieldName) %e
                                 @@>)
                     | _, Ast.MaxMultiplicity.Multiple ->
                         let listTyp =
                             ProvidedTypeBuilder.MakeGenericType(
-                                typedefof<_ list>,
+                                typedefof<_ seq>,
                                 [fieldType])
+                        let accessorType =
+                            ProvidedTypeBuilder.MakeGenericType(typedefof<CompositeFieldAccess<_>>, [fieldType])
                         pdb.NewMethod(
                             sprintf "Get%ss" fieldName,
                             listTyp,
                             [],
                             fun this _ ->
-                                let e = asList this
-                                <@@
-                                    List.filter (fun (name, _) -> name = fieldName) %e
-                                    |> List.map (fun (_, x) -> new PlaceHolder<_>(x))
-                                @@> |> fixup)
+                                let construct =
+                                    let v = Var("x", typeof<Ast.Value>)
+                                    Expr.Lambda(v,
+                                        Expr.NewObjectUnchecked(
+                                            fieldType.GetConstructors().[0],
+                                            [ Expr.Var v ]
+                                        )
+                                    )
+                                let accessor = 
+                                    Expr.NewObjectUnchecked(
+                                        accessorType.GetConstructors().[0],
+                                        [ Expr.Coerce(this, typeof<Ast.Value>)
+                                          Expr.Value(fieldName)
+                                          construct
+                                        ]
+                                    )
+                                let enumerable =
+                                    Expr.PropertyGetUnchecked(
+                                        accessor,
+                                        accessorType.GetProperty("Items"),
+                                        [])
+                                enumerable
+                        )
                 )
             |> Map.toList
             |> List.sortBy fst
@@ -741,8 +777,8 @@ type MissionTypes(config: TypeProviderConfig) as this =
     do assert (typeof<Parsing.Stream>.Assembly.GetName().Name = asm.GetName().Name)  
 
     let buildProvider (enableLogging : bool) (typeName : string, sample : string) =
-        //if not(String.IsNullOrWhiteSpace(System.Environment.GetEnvironmentVariable("TP_DEBUG"))) then
-        //    System.Diagnostics.Debugger.Launch() |> ignore
+        if not(String.IsNullOrWhiteSpace(System.Environment.GetEnvironmentVariable("TP_DEBUG"))) then
+            System.Diagnostics.Debugger.Launch() |> ignore
 
         let asm = ProvidedAssembly()
         let logInfo, closeLog =
