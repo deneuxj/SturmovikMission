@@ -424,22 +424,6 @@ module internal Internal =
                             Expr.NewObjectUnchecked(constructor, [ e ]),
                             fieldType)
 
-                    let mkSeqReturnExpr (e : Expr<Ast.Value seq>) =
-                        let itVar = Var("it", typeof<System.Collections.Generic.IEnumerator<Ast.Value>>)
-                        let varRef = Expr.Var itVar |> Expr.Cast<System.Collections.Generic.IEnumerator<Ast.Value>>
-                        let newObj =
-                            Expr.Coerce(
-                                Expr.NewObjectUnchecked(constructor, [ <@@ (%varRef).Current @@> ]),
-                                fieldType)
-                        Expr.LetUnchecked(itVar, <@@ (%e).GetEnumerator() @@>,
-                            <@@
-                                seq {
-                                    while (%varRef).MoveNext() do
-                                        yield %%newObj
-                                }
-                            @@>
-                        )
-
                     match (minMult, maxMult) with
                     | Ast.MinMultiplicity.MinOne, Ast.MaxMultiplicity.MaxOne ->
                         pdb.NewMethod(
@@ -467,37 +451,35 @@ module internal Internal =
                     | _, Ast.MaxMultiplicity.Multiple ->
                         let listTyp =
                             ProvidedTypeBuilder.MakeGenericType(
-                                typedefof<_ seq>,
+                                typedefof<ICollection<_>>,
                                 [fieldType])
-                        let accessorType =
-                            ProvidedTypeBuilder.MakeGenericType(typedefof<CompositeFieldAccess<_>>, [fieldType])
                         pdb.NewMethod(
                             sprintf "Get%ss" fieldName,
-                            listTyp,
-                            [],
-                            fun this _ ->
-                                let construct =
-                                    let v = Var("x", typeof<Ast.Value>)
-                                    Expr.Lambda(v,
-                                        Expr.NewObjectUnchecked(
-                                            fieldType.GetConstructors().[0],
-                                            [ Expr.Var v ]
+                            typeof<Void>,
+                            [("outItems", listTyp)],
+                            fun this ->
+                                function
+                                | [outItems] ->
+                                    let fields = asList this
+                                    let miAdd = listTyp.GetMethod("Add")
+                                    let miMoveNext = typeof<System.Collections.IEnumerator>.GetMethod("MoveNext")
+                                    let miCurrent = typeof<IEnumerator<Ast.Value>>.GetProperty("Current")
+                                    let itVar = Var("it", typeof<IEnumerator<Ast.Value>>)
+                                    Expr.LetUnchecked(itVar, <@ ((%fields) :> IEnumerable<string * Ast.Value>).GetEnumerator() @>,
+                                        Expr.WhileLoop(
+                                            Expr.CallUnchecked(Expr.Var itVar, miMoveNext, []),
+                                            Expr.CallUnchecked(outItems, miAdd, [
+                                                Expr.NewObjectUnchecked(constructor, [
+                                                    Expr.PropertyGetUnchecked(
+                                                        Expr.Var itVar,
+                                                        miCurrent,
+                                                        [])
+                                                ])
+                                            ])
                                         )
                                     )
-                                let accessor = 
-                                    Expr.NewObjectUnchecked(
-                                        accessorType.GetConstructors().[0],
-                                        [ Expr.Coerce(this, typeof<Ast.Value>)
-                                          Expr.Value(fieldName)
-                                          construct
-                                        ]
-                                    )
-                                let enumerable =
-                                    Expr.PropertyGetUnchecked(
-                                        accessor,
-                                        accessorType.GetProperty("Items"),
-                                        [])
-                                enumerable
+                                | _ -> failwith "INTERNAL ERROR"
+
                         )
                 )
             |> Map.toList
