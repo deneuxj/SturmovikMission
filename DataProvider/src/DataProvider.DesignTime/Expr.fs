@@ -144,3 +144,71 @@ module internal ExprExtensions =
                 )
             )
             |> Expr.Cast<'TargetType option>
+
+        /// Apply a map function to items of type 'T and make a sequence of items of type 'fieldType'
+        static member MapItems<'T>(fieldType, values : Expr<IEnumerable<'T>>, map : Expr -> Expr) =
+            let enumeratorTyp = typeof<IEnumerator<'T>>
+            let miMoveNext = typeof<System.Collections.IEnumerator>.GetMethod("MoveNext")
+            let miCurrent = enumeratorTyp.GetProperty("Current")
+            let itVar = Var("it", enumeratorTyp)
+            let auxListTyp = ProvidedTypeBuilder.MakeGenericType(typedefof<ResizeArray<_>>, [fieldType])
+            let miAdd = auxListTyp.GetMethod("Add")
+            let miNewAuxList = auxListTyp.GetConstructor([||])
+            let auxVar = Var("aux", auxListTyp)
+            // let aux = new ResizeArray<T>()
+            Expr.LetUnchecked(auxVar, Expr.NewObjectUnchecked(miNewAuxList, []),
+                Expr.Sequential(
+                    // let it = values.GetEnumerator()
+                    Expr.LetUnchecked(itVar, <@ (%values).GetEnumerator() @>,
+                        // while
+                        Expr.WhileLoop(
+                            // it.MoveNext do 
+                            Expr.CallUnchecked(Expr.Var itVar, miMoveNext, []),
+                            // aux.Add
+                            Expr.CallUnchecked(Expr.Var auxVar, miAdd, [
+                                // map(it.Current)
+                                map(
+                                    Expr.PropertyGetUnchecked(
+                                        Expr.Var itVar,
+                                        miCurrent,
+                                        [])
+                                )
+                            ])
+                        )
+                    ),
+                    // return aux
+                    Expr.Var(auxVar)
+                )
+            )
+
+        /// Map a 'T option to a 'fieldType' option
+        static member MapOption<'T>(fieldType, value : Expr<'T option>, map : Expr -> Expr) =
+            let inOptTyp = value.Type
+            let propIsSome = inOptTyp.GetProperty("IsSome")
+            let propValue = inOptTyp.GetProperty("Value")
+            let outOptTyp = ProvidedTypeBuilder.MakeGenericType(typedefof<_ option>, [fieldType])
+            let propNone = outOptTyp.GetProperty("None")
+            let miNewOpt = outOptTyp.GetMethod("Some")
+            let inVar = Var("value", inOptTyp)
+            // let e = %e in
+            Expr.Let(inVar, value,
+                // if e.IsSome
+                Expr.IfThenElse(
+                    Expr.PropertyGetUnchecked(propIsSome, [Expr.Var inVar]),
+                    // then Some(map e.Value)
+                    Expr.CallUnchecked(
+                        // Some
+                        miNewOpt,
+                        [
+                            map(
+                                Expr.PropertyGetUnchecked(propValue, [Expr.Var inVar])
+                            )
+                        ]
+                    ),
+                    // else
+                    Expr.PropertyGetUnchecked(
+                        // None
+                        propNone, []
+                    )
+                )
+            )

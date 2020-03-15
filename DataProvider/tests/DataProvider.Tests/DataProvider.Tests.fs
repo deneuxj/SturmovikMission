@@ -204,3 +204,11 @@ let ``T.Airfield has functional getters``() =
     let airfield = T.Airfield.Default.SetPlanes(planes)
     let read = airfield.GetPlanes()
     Assert.AreEqual(planes.Wrapped, read.Wrapped)
+
+[<Test>]
+let ``T.Train has a functional optional getter for carriages``() =
+    let carriages = T.Train.Carriages.FromList [T.String.N "carriage1"; T.String.N "carriage2"]
+    let train = T.Train.Default.SetCarriages(Some carriages)
+    let carriages2 = train.TryGetCarriages()
+    Assert.AreEqual(Some(carriages.Wrapped), carriages2 |> Option.map (fun x -> x.Wrapped))
+    ()

@@ -419,6 +419,7 @@ module internal Internal =
                         getProvidedType { Name = fieldName; Kind = def; Parents = parents }
 
                     let constructor = fieldType.GetConstructor([| typeof<Ast.Value> |])
+                    let map e = Expr.NewObjectUnchecked(constructor, [ e ])
                     let mkReturnExpr (e : Expr<Ast.Value>) =
                         Expr.Coerce(
                             Expr.NewObjectUnchecked(constructor, [ e ]),
@@ -439,15 +440,25 @@ module internal Internal =
                                 @>
                                 |> mkReturnExpr)
                     | Ast.MinMultiplicity.Zero, Ast.MaxOne ->
+                        let optTyp =
+                            ProvidedTypeBuilder.MakeGenericType(
+                                typedefof<_ option>,
+                                [fieldType])
                         pdb.NewMethod(
-                            sprintf "Has%s" fieldName,
-                            typeof<bool>,
+                            sprintf "TryGet%s" fieldName,
+                            optTyp,
                             [],
                             fun this _ ->
-                                let e = asList this
-                                <@@
-                                    List.exists (fun (name, _) -> name = fieldName) %e
-                                @@>)
+                                let fields = asList this
+                                let fieldName = Expr.Value(fieldName) |> Expr.Cast<string>
+                                let value =
+                                    <@
+                                        %fields
+                                        |> List.tryPick (fun (name, x) -> if name = %fieldName then Some x else None)
+                                    @>
+                                let outOpt = Expr.MapOption(fieldType, value, map)
+                                Expr.Coerce(outOpt, optTyp)
+                        )
                     | _, Ast.MaxMultiplicity.Multiple ->
                         let listTyp =
                             ProvidedTypeBuilder.MakeGenericType(
@@ -466,40 +477,8 @@ module internal Internal =
                                         |> List.choose (fun (name, x) -> if name = %fieldName then Some x else None)
                                         :> IEnumerable<Ast.Value>
                                     @>
-                                let miMoveNext = typeof<System.Collections.IEnumerator>.GetMethod("MoveNext")
-                                let miCurrent = typeof<IEnumerator<Ast.Value>>.GetProperty("Current")
-                                let itVar = Var("it", typeof<IEnumerator<Ast.Value>>)
-                                let auxListTyp = ProvidedTypeBuilder.MakeGenericType(typedefof<ResizeArray<_>>, [fieldType])
-                                let miAdd = auxListTyp.GetMethod("Add")
-                                let miNewAuxList = auxListTyp.GetConstructor([||])
-                                let auxVar = Var("aux", auxListTyp)
-                                // let aux = new ResizeArray<T>()
-                                Expr.LetUnchecked(auxVar, Expr.NewObjectUnchecked(miNewAuxList, []),
-                                    Expr.Sequential(
-                                        // let it = values.GetEnumerator()
-                                        Expr.LetUnchecked(itVar, <@ (%values).GetEnumerator() @>,
-                                            // while
-                                            Expr.WhileLoop(
-                                                // it.MoveNext do 
-                                                Expr.CallUnchecked(Expr.Var itVar, miMoveNext, []),
-                                                // aux.Add
-                                                Expr.CallUnchecked(Expr.Var auxVar, miAdd, [
-                                                    // T(it.Current)
-                                                    Expr.NewObjectUnchecked(constructor, [
-                                                        Expr.PropertyGetUnchecked(
-                                                            Expr.Var itVar,
-                                                            miCurrent,
-                                                            [])
-                                                    ])
-                                                ])
-                                            )
-                                        ),
-                                        // return aux
-                                        Expr.Coerce(
-                                            Expr.Var(auxVar),
-                                            listTyp)
-                                    )
-                                )
+                                let wrapped = Expr.MapItems(fieldType, values, map)
+                                Expr.Coerce(wrapped, listTyp)
                         )
                 )
             |> Map.toList
