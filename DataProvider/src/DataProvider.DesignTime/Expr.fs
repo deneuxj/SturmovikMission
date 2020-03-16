@@ -146,7 +146,7 @@ module internal ExprExtensions =
             |> Expr.Cast<'TargetType option>
 
         /// Apply a map function to items of type 'T and make a sequence of items of type 'fieldType'
-        static member MapItems<'T>(fieldType, values : Expr<IEnumerable<'T>>, map : Expr -> Expr) =
+        static member MapItems(fieldType, values : Expr<IEnumerable<'T>>, map : Expr<'T> -> Expr) =
             let enumeratorTyp = typeof<IEnumerator<'T>>
             let miMoveNext = typeof<System.Collections.IEnumerator>.GetMethod("MoveNext")
             let miCurrent = enumeratorTyp.GetProperty("Current")
@@ -172,6 +172,7 @@ module internal ExprExtensions =
                                         Expr.Var itVar,
                                         miCurrent,
                                         [])
+                                    |> Expr.Cast<'T>
                                 )
                             ])
                         )
@@ -181,8 +182,30 @@ module internal ExprExtensions =
                 )
             )
 
+        /// Apply a map function on the values of a mapping of type 'K, and make a mapping from the same type of keys to values of type 'valueType'
+        static member MapMap(valueType, values : Expr<Map<'K, 'V>>, map : Expr<'V> -> Expr) =
+            let asSeq = <@ %values |> Map.toSeq @>
+            let map (e : Expr<'K * 'V>) =
+                let keyVar = Var("k", typeof<'K>)
+                let valVar = Var("v", typeof<'V>)
+                Expr.LetUnchecked(keyVar, Expr.TupleGetUnchecked(e, 0),
+                    Expr.LetUnchecked(valVar, Expr.TupleGetUnchecked(e, 1),
+                        Expr.NewTuple [Expr.Var keyVar; map(Expr.Cast<'V>(Expr.Var valVar))]))
+            let pairType = ProvidedTypeBuilder.MakeTupleType([typeof<'K>; valueType])
+            let mapped = Expr.MapItems(pairType, asSeq, map)
+            let mapType = ProvidedTypeBuilder.MakeGenericType(typedefof<Map<_, _>>, [ typeof<'K>; valueType ])
+            let constructor =
+                mapType.GetConstructors()
+                |> Seq.find(fun constructor ->
+                    match constructor.GetParameters() with
+                    | [| param |] ->
+                        let typ = param.ParameterType
+                        typ.IsAssignableFrom(mapped.Type)
+                    | _ -> false)
+            Expr.NewObjectUnchecked(constructor, [mapped])
+
         /// Map a 'T option to a 'fieldType' option
-        static member MapOption<'T>(fieldType, value : Expr<'T option>, map : Expr -> Expr) =
+        static member MapOption(fieldType, value : Expr<'T option>, map : Expr<'T> -> Expr) =
             let inOptTyp = value.Type
             let propIsSome = inOptTyp.GetProperty("IsSome")
             let propValue = inOptTyp.GetProperty("Value")
@@ -202,6 +225,7 @@ module internal ExprExtensions =
                         [
                             map(
                                 Expr.PropertyGetUnchecked(propValue, [Expr.Var inVar])
+                                |> Expr.Cast<'T>
                             )
                         ]
                     ),

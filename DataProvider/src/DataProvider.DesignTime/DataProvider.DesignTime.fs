@@ -143,6 +143,10 @@ module internal Internal =
 
         let asList this = <@ (%%this : Ast.Value).GetItems() @>
 
+        let wrap (fieldType : ProvidedTypeDefinition) =
+            let constructor = fieldType.GetConstructor([| typeof<Ast.Value> |])
+            fun (e : Expr<Ast.Value>) -> Expr.NewObjectUnchecked(constructor, [ e ])
+
         /// Add static property AstType to a generated type. It returns the ValueType.
         let addAstValueTypeProperty (ptyp : ProvidedTypeDefinition, vt : Ast.ValueType) =
             ptyp.AddMember(pdb.NewStaticProperty("AstType", typeof<Ast.ValueType>, vt.ToExpr()))
@@ -290,7 +294,19 @@ module internal Internal =
                             @>))
                         // Value getter
                         let propTyp = ProvidedTypeBuilder.MakeGenericType(typedefof<Map<_,_>>, [typeof<int>; ptyp1])
-                        ptyp.AddMember(pdb.NewProperty("Value", propTyp, fun this -> <@@ (%this : Ast.Value).GetMapping() |> Map.ofList @@>))
+                        ptyp.AddMember(
+                            pdb.NewProperty(
+                                "Value", 
+                                propTyp,
+                                fun this ->
+                                    let values =
+                                        <@
+                                            (%this : Ast.Value).GetMapping()
+                                            |> Map.ofList
+                                        @>
+                                    let wrap = wrap ptyp1
+                                    let wrapped = Expr.MapMap(ptyp1, values, wrap)
+                                    Expr.Coerce(wrapped, propTyp)))
                         // Set item in the map
                         ptyp.AddMember(pdb.NewMethod("SetItem", ptyp, [("Key", typeof<int>); ("Value", upcast ptyp1)], fun this args ->
                             match args with
@@ -324,7 +340,19 @@ module internal Internal =
                         addComplexNestedType(ptyp, ptyp1, itemTyp)
                         // Value getter
                         let propTyp = ProvidedTypeBuilder.MakeGenericType(typedefof<_ list>, [ptyp1])
-                        ptyp.AddMember(pdb.NewProperty("Value", propTyp, fun this -> <@@ (%this : Ast.Value).GetList() @@>))
+                        ptyp.AddMember(
+                            pdb.NewProperty(
+                                "Value",
+                                propTyp,
+                                fun this ->
+                                    let values =
+                                        <@
+                                            (%this : Ast.Value).GetList()
+                                            :> IEnumerable<Ast.Value>
+                                        @>
+                                    let wrap = wrap ptyp1
+                                    let wrapped = Expr.MapItems(ptyp1, values, wrap)
+                                    Expr.Coerce(wrapped, propTyp)))
                         // constructor with value
                         ptyp.AddMember(
                             pdb.NewNamedConstructor(
@@ -418,12 +446,9 @@ module internal Internal =
                     let fieldType =
                         getProvidedType { Name = fieldName; Kind = def; Parents = parents }
 
-                    let constructor = fieldType.GetConstructor([| typeof<Ast.Value> |])
-                    let map e = Expr.NewObjectUnchecked(constructor, [ e ])
+                    let wrap = wrap fieldType
                     let mkReturnExpr (e : Expr<Ast.Value>) =
-                        Expr.Coerce(
-                            Expr.NewObjectUnchecked(constructor, [ e ]),
-                            fieldType)
+                        Expr.Coerce(wrap e, fieldType)
 
                     match (minMult, maxMult) with
                     | Ast.MinMultiplicity.MinOne, Ast.MaxMultiplicity.MaxOne ->
@@ -456,7 +481,7 @@ module internal Internal =
                                         %fields
                                         |> List.tryPick (fun (name, x) -> if name = %fieldName then Some x else None)
                                     @>
-                                let outOpt = Expr.MapOption(fieldType, value, map)
+                                let outOpt = Expr.MapOption(fieldType, value, wrap)
                                 Expr.Coerce(outOpt, optTyp)
                         )
                     | _, Ast.MaxMultiplicity.Multiple ->
@@ -477,7 +502,7 @@ module internal Internal =
                                         |> List.choose (fun (name, x) -> if name = %fieldName then Some x else None)
                                         :> IEnumerable<Ast.Value>
                                     @>
-                                let wrapped = Expr.MapItems(fieldType, values, map)
+                                let wrapped = Expr.MapItems(fieldType, values, wrap)
                                 Expr.Coerce(wrapped, listTyp)
                         )
                 )
