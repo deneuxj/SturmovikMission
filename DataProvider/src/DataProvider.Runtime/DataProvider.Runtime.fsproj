@@ -29,7 +29,6 @@
     <None Include="..\..\..\data\Sample.Mission" Link="Sample.Mission">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <Compile Include="ReflectionAccess.fs" />
     <Compile Include="Unification.fs" />
     <Compile Include="Parsing.fs" />
     <Compile Include="AutoSchema.fs" />

@@ -28,7 +28,6 @@
       <Link>paket-files/ProvidedTypes.fs</Link>
     </Compile>
     <Compile Include="ProvidedDataBuilder.fs" />
-    <Compile Include="ReflectionAccess.fs" />
     <Compile Include="Expr.fs" />
     <Compile Include="UniqueNames.fs" />
     <Compile Include="FileWithTime.fs" />
