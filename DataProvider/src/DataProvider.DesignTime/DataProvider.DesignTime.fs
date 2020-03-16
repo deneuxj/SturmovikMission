@@ -390,8 +390,19 @@ module internal Internal =
             addComplexNestedType(ptyp, ptyp1, typ1)
             addComplexNestedType(ptyp, ptyp2, typ2)
             // Value getter
-            let propTyp = ProvidedTypeBuilder.MakeGenericType(typedefof<_*_>, [ptyp1; ptyp2])
-            ptyp.AddMember(pdb.NewProperty("Value", propTyp, fun this -> <@@ (%this : Ast.Value).GetPair() @@>))
+            let propTyp = ProvidedTypeBuilder.MakeTupleType [ptyp1; ptyp2]
+            ptyp.AddMember(
+                pdb.NewProperty(
+                    "Value", 
+                    propTyp, 
+                    fun this ->
+                        let tp = <@@ (%this : Ast.Value).GetTriplet() @@>
+                        Expr.NewTuple [
+                            Expr.TupleGetUnchecked(tp, 0) |> Expr.Cast<Ast.Value> |> wrap ptyp1
+                            Expr.TupleGetUnchecked(tp, 1) |> Expr.Cast<Ast.Value> |> wrap ptyp2
+                        ]
+                )
+            )
             // Constructor
             ptyp.AddMember(
                 pdb.NewNamedConstructor(
@@ -422,7 +433,19 @@ module internal Internal =
             addComplexNestedType(ptyp, ptyp3, typ3)
             let propTyp = ProvidedTypeBuilder.MakeTupleType([ptyp1; ptyp2; ptyp3])
             // Value getter
-            ptyp.AddMember(pdb.NewProperty("Value", propTyp, fun this -> <@@ (%this : Ast.Value).GetTriplet() @@>))
+            ptyp.AddMember(
+                pdb.NewProperty(
+                    "Value",
+                    propTyp,
+                    fun this ->
+                        let tp = <@@ (%this : Ast.Value).GetTriplet() @@>
+                        Expr.NewTuple [
+                            Expr.TupleGetUnchecked(tp, 0) |> Expr.Cast<Ast.Value> |> wrap ptyp1
+                            Expr.TupleGetUnchecked(tp, 1) |> Expr.Cast<Ast.Value> |> wrap ptyp2
+                            Expr.TupleGetUnchecked(tp, 2) |> Expr.Cast<Ast.Value> |> wrap ptyp3
+                        ]
+                )
+            )
             // Constructor
             ptyp.AddMember(
                 pdb.NewNamedConstructor(

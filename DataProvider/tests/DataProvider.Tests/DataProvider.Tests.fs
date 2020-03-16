@@ -232,3 +232,9 @@ let ``T.Block.Damaged has a functional getter for maps``() =
     let damagesOut = damaged.Value
     let unwrap = Map.map (fun _ (v : T.Float) -> v.Value)
     Assert.AreEqual(unwrap damages, unwrap damagesOut)
+
+[<Test>]
+let ``T.Options.Time has a functional triplet value getter``() =
+    let time = T.Options.Time.Create(T.Integer.N 1, T.Integer.N 2, T.Integer.N 3)
+    let (h, m, s) = time.Value
+    Assert.AreEqual((1, 2, 3), (h.Value, m.Value, s.Value))
