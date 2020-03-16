@@ -339,7 +339,7 @@ module internal Internal =
                         let ptyp = pdb.NewWrapper(name)
                         addComplexNestedType(ptyp, ptyp1, itemTyp)
                         // Value getter
-                        let propTyp = ProvidedTypeBuilder.MakeGenericType(typedefof<_ list>, [ptyp1])
+                        let propTyp = ProvidedTypeBuilder.MakeGenericType(typedefof<IEnumerable<_>>, [ptyp1])
                         ptyp.AddMember(
                             pdb.NewProperty(
                                 "Value",
@@ -351,8 +351,7 @@ module internal Internal =
                                             :> IEnumerable<Ast.Value>
                                         @>
                                     let wrap = wrap ptyp1
-                                    let wrapped = Expr.MapItems(ptyp1, values, wrap)
-                                    Expr.Coerce(wrapped, propTyp)))
+                                    Expr.MapItems(ptyp1, values, wrap)))
                         // constructor with value
                         ptyp.AddMember(
                             pdb.NewNamedConstructor(
@@ -502,8 +501,7 @@ module internal Internal =
                                         |> List.choose (fun (name, x) -> if name = %fieldName then Some x else None)
                                         :> IEnumerable<Ast.Value>
                                     @>
-                                let wrapped = Expr.MapItems(fieldType, values, wrap)
-                                Expr.Coerce(wrapped, listTyp)
+                                Expr.MapItems(fieldType, values, wrap)
                         )
                 )
             |> Map.toList

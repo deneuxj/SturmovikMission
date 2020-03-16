@@ -152,6 +152,7 @@ module internal ExprExtensions =
             let miCurrent = enumeratorTyp.GetProperty("Current")
             let itVar = Var("it", enumeratorTyp)
             let auxListTyp = ProvidedTypeBuilder.MakeGenericType(typedefof<ResizeArray<_>>, [fieldType])
+            let resTyp = ProvidedTypeBuilder.MakeGenericType(typedefof<IEnumerable<_>>, [fieldType])
             let miAdd = auxListTyp.GetMethod("Add")
             let miNewAuxList = auxListTyp.GetConstructor([||])
             let auxVar = Var("aux", auxListTyp)
@@ -177,8 +178,10 @@ module internal ExprExtensions =
                             ])
                         )
                     ),
-                    // return aux
-                    Expr.Var(auxVar)
+                    // return aux :> IEnumerable<fieldType>
+                    Expr.Coerce(
+                        Expr.Var(auxVar),
+                        resTyp)
                 )
             )
 
