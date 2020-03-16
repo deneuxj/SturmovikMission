@@ -19,16 +19,16 @@ description
     Type provider for IL-2 Sturmovik: Great Battles mission files
 files
     bin/Release/net45/SturmovikMission.DataProvider.Runtime.* ==> lib/net45
-	bin/Release/net45/McuLibrary.* ==> lib/net45
+    bin/Release/net45/McuLibrary.* ==> lib/net45
     bin/Release/netstandard2.0/SturmovikMission.DataProvider.Runtime.* ==> lib/netstandard2.0
-	bin/Release/netstandard2.0/McuLibrary.* ==> lib/netstandard2.0
+    bin/Release/netstandard2.0/McuLibrary.* ==> lib/netstandard2.0
     bin/Release/typeproviders/fsharp41/netstandard2.0/*.dll ==> typeproviders/fsharp41/netstandard2.0
     bin/Release/typeproviders/fsharp41/netcoreapp3.1/*.dll ==> typeproviders/fsharp41/netcoreapp3.1
     bin/Release/typeproviders/fsharp41/net45/*.dll ==> typeproviders/fsharp41/net45
-	bin/Release/netstandard2.0/*.mission ==> content
+    bin/Release/netstandard2.0/*.mission ==> content
 references
     SturmovikMission.DataProvider.Runtime.dll
-	McuLibrary.dll
+    McuLibrary.dll
 dependencies
   FSharp.Core >= LOCKEDVERSION
   FsPickler >= LOCKEDVERSION
