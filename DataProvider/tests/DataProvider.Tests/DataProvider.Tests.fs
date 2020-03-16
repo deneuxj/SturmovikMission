@@ -238,3 +238,20 @@ let ``T.Options.Time has a functional triplet value getter``() =
     let time = T.Options.Time.Create(T.Integer.N 1, T.Integer.N 2, T.Integer.N 3)
     let (h, m, s) = time.Value
     Assert.AreEqual((1, 2, 3), (h.Value, m.Value, s.Value))
+
+[<Test>]
+let ``T.GroupData has a functional ListOf... getter``() =
+    let vertices = 
+        [ T.FloatPair.N (0.0, 0.0)
+          T.FloatPair.N (1.0, 0.0)
+          T.FloatPair.N (1.0, 1.0) ]
+    let area =
+        T.MCU_TR_InfluenceArea.Default
+            .SetBoundary(
+                T.MCU_TR_InfluenceArea.Boundary.FromList vertices
+            )
+    let group = T.GroupData.Parse(Parsing.Stream.FromString(area.AsString()))
+    let areas = group.ListOfMCU_TR_InfluenceArea
+    let boundary = (Seq.head areas).GetBoundary()
+    let unwrap = List.map (fun (x : T.FloatPair) -> x.Value)
+    Assert.AreEqual(unwrap vertices, unwrap(List.ofSeq boundary.Value))
