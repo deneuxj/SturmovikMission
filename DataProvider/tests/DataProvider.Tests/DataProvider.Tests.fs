@@ -168,7 +168,7 @@ let ``T.GroupData can create lists of MCUs``() =
     for mcu in mcus do
         printfn "%s" (mcu.AsString())
     let timers2 = group.ListOfMCU_Timer
-    Assert.AreEqual(timers.Length, timers2.Length, "ListOfMCU_Timer should contain the correct number of elements")
+    Assert.AreEqual(timers.Length, Seq.length timers2, "ListOfMCU_Timer should contain the correct number of elements")
 
 [<Test>]
 let ``T.GroupData can parse files``() =
@@ -190,7 +190,7 @@ let ``T.GroupData can parse files``() =
     for mcu in mcus do
         printfn "%s" (mcu.AsString())
     let timers2 = group.ListOfMCU_Timer
-    Assert.AreEqual(timers.Length, timers2.Length, "ListOfMCU_Timer should contain the correct number of elements")
+    Assert.AreEqual(timers.Length, Seq.length timers2, "ListOfMCU_Timer should contain the correct number of elements")
 
 [<Test>]
 let ``T.Airfield has functional getters``() =
