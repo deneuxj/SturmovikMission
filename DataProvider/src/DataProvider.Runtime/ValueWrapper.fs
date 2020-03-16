@@ -23,16 +23,6 @@ open SturmovikMission.DataProvider
 type AstValueWrapper(value : Ast.Value) =
     member this.Wrapped = value
 
-/// Helper class to access fields with multiplicity larger than one in composites
-type CompositeFieldAccess<'T>(value : Ast.Value, name, convert) =
-    member this.Items : 'T seq =
-        match value with
-        | Ast.Value.Composite fields ->
-            fields
-            |> Seq.choose (fun (fname, x) -> if name = fname then Some(convert x) else None)
-        | _ ->
-            failwith "Cannot access fields in a non-composite value"
-
 /// The base type of the result of parsing a mission file
 type GroupMembers(items : SturmovikMission.DataProvider.Ast.Data list) =
     member this.Items = items
