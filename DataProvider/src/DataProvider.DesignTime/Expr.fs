@@ -28,6 +28,7 @@ module internal AstExtensions =
     let private valueTypeToExprCache = new Dictionary<ValueType, Expr<ValueType>>(HashIdentity.Structural)
     let serializer = XmlSerializer()
 
+    /// Serialize a ValueType and return an expression that deserializes that.
     let buildExprFromValueType (typ : ValueType) =
         use writer = new System.IO.StringWriter()
         serializer.Serialize(writer, typ)
@@ -38,13 +39,15 @@ module internal AstExtensions =
             let serializer = XmlSerializer()
             serializer.Deserialize<ValueType>(reader)
         @>
-        
+
     let getExprOfValueType expr =
         Cached.cached valueTypeToExprCache buildExprFromValueType expr
 
     type ValueType with
+        /// Serialize a ValueType and return an expression that deserializes that.
         member this.ToExpr() = getExprOfValueType this
-        
+
+        /// Serialize a mapping from arbitrary keys to ValueType, and return an expression that deserializes that.
         static member MapToExpr(mapping : Map<'K, ValueType>) : Expr<Map<'K, ValueType>> =
             use writer = new System.IO.StringWriter()
             serializer.Serialize(writer, mapping)
@@ -141,3 +144,98 @@ module internal ExprExtensions =
                 )
             )
             |> Expr.Cast<'TargetType option>
+
+        /// Apply a map function to items of type 'T and make a sequence of items of type 'fieldType'
+        static member MapItems(fieldType, values : Expr<IEnumerable<'T>>, map : Expr<'T> -> Expr) =
+            let enumeratorTyp = typeof<IEnumerator<'T>>
+            let miMoveNext = typeof<System.Collections.IEnumerator>.GetMethod("MoveNext")
+            let miCurrent = enumeratorTyp.GetProperty("Current")
+            let itVar = Var("it", enumeratorTyp)
+            let auxListTyp = ProvidedTypeBuilder.MakeGenericType(typedefof<ResizeArray<_>>, [fieldType])
+            let resTyp = ProvidedTypeBuilder.MakeGenericType(typedefof<IEnumerable<_>>, [fieldType])
+            let miAdd = auxListTyp.GetMethod("Add")
+            let miNewAuxList = auxListTyp.GetConstructor([||])
+            let auxVar = Var("aux", auxListTyp)
+            // let aux = new ResizeArray<T>()
+            Expr.LetUnchecked(auxVar, Expr.NewObjectUnchecked(miNewAuxList, []),
+                Expr.Sequential(
+                    // let it = values.GetEnumerator()
+                    Expr.LetUnchecked(itVar, <@ (%values).GetEnumerator() @>,
+                        // while
+                        Expr.WhileLoop(
+                            // it.MoveNext do 
+                            Expr.CallUnchecked(Expr.Var itVar, miMoveNext, []),
+                            // aux.Add
+                            Expr.CallUnchecked(Expr.Var auxVar, miAdd, [
+                                // map(it.Current)
+                                map(
+                                    Expr.PropertyGetUnchecked(
+                                        Expr.Var itVar,
+                                        miCurrent,
+                                        [])
+                                    |> Expr.Cast<'T>
+                                )
+                            ])
+                        )
+                    ),
+                    // return aux :> IEnumerable<fieldType>
+                    Expr.Coerce(
+                        Expr.Var(auxVar),
+                        resTyp)
+                )
+            )
+
+        /// Apply a map function on the values of a mapping of type 'K, and make a mapping from the same type of keys to values of type 'valueType'
+        static member MapMap(valueType, values : Expr<Map<'K, 'V>>, map : Expr<'V> -> Expr) =
+            let asSeq = <@ %values |> Map.toSeq @>
+            let map (e : Expr<'K * 'V>) =
+                let keyVar = Var("k", typeof<'K>)
+                let valVar = Var("v", typeof<'V>)
+                Expr.LetUnchecked(keyVar, Expr.TupleGetUnchecked(e, 0),
+                    Expr.LetUnchecked(valVar, Expr.TupleGetUnchecked(e, 1),
+                        Expr.NewTuple [Expr.Var keyVar; map(Expr.Cast<'V>(Expr.Var valVar))]))
+            let pairType = ProvidedTypeBuilder.MakeTupleType([typeof<'K>; valueType])
+            let mapped = Expr.MapItems(pairType, asSeq, map)
+            let mapType = ProvidedTypeBuilder.MakeGenericType(typedefof<Map<_, _>>, [ typeof<'K>; valueType ])
+            let constructor =
+                mapType.GetConstructors()
+                |> Seq.find(fun constructor ->
+                    match constructor.GetParameters() with
+                    | [| param |] ->
+                        let typ = param.ParameterType
+                        typ.IsAssignableFrom(mapped.Type)
+                    | _ -> false)
+            Expr.NewObjectUnchecked(constructor, [mapped])
+
+        /// Map a 'T option to a 'fieldType' option
+        static member MapOption(fieldType, value : Expr<'T option>, map : Expr<'T> -> Expr) =
+            let inOptTyp = value.Type
+            let propIsSome = inOptTyp.GetProperty("IsSome")
+            let propValue = inOptTyp.GetProperty("Value")
+            let outOptTyp = ProvidedTypeBuilder.MakeGenericType(typedefof<_ option>, [fieldType])
+            let propNone = outOptTyp.GetProperty("None")
+            let miNewOpt = outOptTyp.GetMethod("Some")
+            let inVar = Var("value", inOptTyp)
+            // let e = %e in
+            Expr.Let(inVar, value,
+                // if e.IsSome
+                Expr.IfThenElse(
+                    Expr.PropertyGetUnchecked(propIsSome, [Expr.Var inVar]),
+                    // then Some(map e.Value)
+                    Expr.CallUnchecked(
+                        // Some
+                        miNewOpt,
+                        [
+                            map(
+                                Expr.PropertyGetUnchecked(propValue, [Expr.Var inVar])
+                                |> Expr.Cast<'T>
+                            )
+                        ]
+                    ),
+                    // else
+                    Expr.PropertyGetUnchecked(
+                        // None
+                        propNone, []
+                    )
+                )
+            )

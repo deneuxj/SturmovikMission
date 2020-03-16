@@ -191,3 +191,50 @@ let ``T.GroupData can parse files``() =
         printfn "%s" (mcu.AsString())
     let timers2 = group.ListOfMCU_Timer
     Assert.AreEqual(timers.Length, timers2.Length, "ListOfMCU_Timer should contain the correct number of elements")
+
+[<Test>]
+let ``T.Airfield has functional getters``() =
+    let planesList =
+        [
+            T.Airfield.Planes.Plane.Default
+        ]
+    let planes = T.Airfield.Planes.Default.SetPlane(planesList)
+    let outPlanes = planes.GetPlanes()
+    Assert.AreEqual(planesList.Head.Wrapped, Seq.head(outPlanes).Wrapped)
+    let airfield = T.Airfield.Default.SetPlanes(planes)
+    let read = airfield.GetPlanes()
+    Assert.AreEqual(planes.Wrapped, read.Wrapped)
+
+[<Test>]
+let ``T.Train has a functional optional getter for carriages``() =
+    let carriages = T.Train.Carriages.FromList [T.String.N "carriage1"; T.String.N "carriage2"]
+    let train = T.Train.Default.SetCarriages(Some carriages)
+    let carriages2 = train.TryGetCarriages()
+    Assert.AreEqual(Some(carriages.Wrapped), carriages2 |> Option.map (fun x -> x.Wrapped))
+
+[<Test>]
+let ``T.Options has a functional getter for lists``() =
+    let configs = [T.String.N "A"; T.String.N "B"]
+    let options = T.Options.Default.SetMultiplayerPlaneConfig(configs)
+    let configsOut =
+        options.GetMultiplayerPlaneConfigs()
+        |> List.ofSeq
+    let unwrap = List.map (fun (x : T.String) -> x.Wrapped)
+    Assert.AreEqual(unwrap configs, unwrap configsOut)
+
+[<Test>]
+let ``T.Block.Damaged has a functional getter for maps``() =
+    let damages =
+        [ 0, T.Float.N 0.5
+          123, T.Float.N 1.0
+        ] |> Map.ofList
+    let damaged = T.Block.Damaged.FromMap(damages)
+    let damagesOut = damaged.Value
+    let unwrap = Map.map (fun _ (v : T.Float) -> v.Value)
+    Assert.AreEqual(unwrap damages, unwrap damagesOut)
+
+[<Test>]
+let ``T.Options.Time has a functional triplet value getter``() =
+    let time = T.Options.Time.Create(T.Integer.N 1, T.Integer.N 2, T.Integer.N 3)
+    let (h, m, s) = time.Value
+    Assert.AreEqual((1, 2, 3), (h.Value, m.Value, s.Value))

@@ -17,8 +17,10 @@
 
 namespace SturmovikMission.DataProvider.TypeProvider
 
+open SturmovikMission.DataProvider
+
 /// The base type of all provided types representing objects found in a mission file, wraps an Ast.Value
-type AstValueWrapper(value : SturmovikMission.DataProvider.Ast.Value) =
+type AstValueWrapper(value : Ast.Value) =
     member this.Wrapped = value
 
 /// The base type of the result of parsing a mission file

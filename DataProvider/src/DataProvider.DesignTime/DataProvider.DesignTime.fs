@@ -32,6 +32,7 @@ open SturmovikMission.ProvidedDataBuilder
 module internal Internal =
     open SturmovikMission.Expr.ExprExtensions
     open SturmovikMission.Expr.AstExtensions
+    open UncheckedQuotations
 
     [<AutoOpen>]
     module AstValueWrapperTypeBuildingHelpers =
@@ -141,6 +142,10 @@ module internal Internal =
         let cache = new Dictionary<TypeIdentification, ProvidedTypeDefinition>(HashIdentity.Structural)
 
         let asList this = <@ (%%this : Ast.Value).GetItems() @>
+
+        let wrap (fieldType : ProvidedTypeDefinition) =
+            let constructor = fieldType.GetConstructor([| typeof<Ast.Value> |])
+            fun (e : Expr<Ast.Value>) -> Expr.NewObjectUnchecked(constructor, [ e ])
 
         /// Add static property AstType to a generated type. It returns the ValueType.
         let addAstValueTypeProperty (ptyp : ProvidedTypeDefinition, vt : Ast.ValueType) =
@@ -289,7 +294,19 @@ module internal Internal =
                             @>))
                         // Value getter
                         let propTyp = ProvidedTypeBuilder.MakeGenericType(typedefof<Map<_,_>>, [typeof<int>; ptyp1])
-                        ptyp.AddMember(pdb.NewProperty("Value", propTyp, fun this -> <@@ (%this : Ast.Value).GetMapping() |> Map.ofList @@>))
+                        ptyp.AddMember(
+                            pdb.NewProperty(
+                                "Value", 
+                                propTyp,
+                                fun this ->
+                                    let values =
+                                        <@
+                                            (%this : Ast.Value).GetMapping()
+                                            |> Map.ofList
+                                        @>
+                                    let wrap = wrap ptyp1
+                                    let wrapped = Expr.MapMap(ptyp1, values, wrap)
+                                    Expr.Coerce(wrapped, propTyp)))
                         // Set item in the map
                         ptyp.AddMember(pdb.NewMethod("SetItem", ptyp, [("Key", typeof<int>); ("Value", upcast ptyp1)], fun this args ->
                             match args with
@@ -322,8 +339,19 @@ module internal Internal =
                         let ptyp = pdb.NewWrapper(name)
                         addComplexNestedType(ptyp, ptyp1, itemTyp)
                         // Value getter
-                        let propTyp = ProvidedTypeBuilder.MakeGenericType(typedefof<_ list>, [ptyp1])
-                        ptyp.AddMember(pdb.NewProperty("Value", propTyp, fun this -> <@@ (%this : Ast.Value).GetList() @@>))
+                        let propTyp = ProvidedTypeBuilder.MakeGenericType(typedefof<IEnumerable<_>>, [ptyp1])
+                        ptyp.AddMember(
+                            pdb.NewProperty(
+                                "Value",
+                                propTyp,
+                                fun this ->
+                                    let values =
+                                        <@
+                                            (%this : Ast.Value).GetList()
+                                            :> IEnumerable<Ast.Value>
+                                        @>
+                                    let wrap = wrap ptyp1
+                                    Expr.MapItems(ptyp1, values, wrap)))
                         // constructor with value
                         ptyp.AddMember(
                             pdb.NewNamedConstructor(
@@ -362,8 +390,19 @@ module internal Internal =
             addComplexNestedType(ptyp, ptyp1, typ1)
             addComplexNestedType(ptyp, ptyp2, typ2)
             // Value getter
-            let propTyp = ProvidedTypeBuilder.MakeGenericType(typedefof<_*_>, [ptyp1; ptyp2])
-            ptyp.AddMember(pdb.NewProperty("Value", propTyp, fun this -> <@@ (%this : Ast.Value).GetPair() @@>))
+            let propTyp = ProvidedTypeBuilder.MakeTupleType [ptyp1; ptyp2]
+            ptyp.AddMember(
+                pdb.NewProperty(
+                    "Value", 
+                    propTyp, 
+                    fun this ->
+                        let tp = <@@ (%this : Ast.Value).GetTriplet() @@>
+                        Expr.NewTuple [
+                            Expr.TupleGetUnchecked(tp, 0) |> Expr.Cast<Ast.Value> |> wrap ptyp1
+                            Expr.TupleGetUnchecked(tp, 1) |> Expr.Cast<Ast.Value> |> wrap ptyp2
+                        ]
+                )
+            )
             // Constructor
             ptyp.AddMember(
                 pdb.NewNamedConstructor(
@@ -394,7 +433,19 @@ module internal Internal =
             addComplexNestedType(ptyp, ptyp3, typ3)
             let propTyp = ProvidedTypeBuilder.MakeTupleType([ptyp1; ptyp2; ptyp3])
             // Value getter
-            ptyp.AddMember(pdb.NewProperty("Value", propTyp, fun this -> <@@ (%this : Ast.Value).GetTriplet() @@>))
+            ptyp.AddMember(
+                pdb.NewProperty(
+                    "Value",
+                    propTyp,
+                    fun this ->
+                        let tp = <@@ (%this : Ast.Value).GetTriplet() @@>
+                        Expr.NewTuple [
+                            Expr.TupleGetUnchecked(tp, 0) |> Expr.Cast<Ast.Value> |> wrap ptyp1
+                            Expr.TupleGetUnchecked(tp, 1) |> Expr.Cast<Ast.Value> |> wrap ptyp2
+                            Expr.TupleGetUnchecked(tp, 2) |> Expr.Cast<Ast.Value> |> wrap ptyp3
+                        ]
+                )
+            )
             // Constructor
             ptyp.AddMember(
                 pdb.NewNamedConstructor(
@@ -416,6 +467,11 @@ module internal Internal =
                 fun fieldName (def, minMult, maxMult) ->
                     let fieldType =
                         getProvidedType { Name = fieldName; Kind = def; Parents = parents }
+
+                    let wrap = wrap fieldType
+                    let mkReturnExpr (e : Expr<Ast.Value>) =
+                        Expr.Coerce(wrap e, fieldType)
+
                     match (minMult, maxMult) with
                     | Ast.MinMultiplicity.MinOne, Ast.MaxMultiplicity.MaxOne ->
                         pdb.NewMethod(
@@ -424,11 +480,12 @@ module internal Internal =
                             [],
                             fun this _ ->
                                 let e = asList this
-                                <@@
+                                <@
                                     match List.tryFind (fun (name, _) -> name = fieldName) %e with
                                     | Some (_, value) -> value
                                     | None -> failwithf "Field '%s' is not set" fieldName
-                                @@>)
+                                @>
+                                |> mkReturnExpr)
                     | Ast.MinMultiplicity.Zero, Ast.MaxOne ->
                         let optTyp =
                             ProvidedTypeBuilder.MakeGenericType(
@@ -439,27 +496,36 @@ module internal Internal =
                             optTyp,
                             [],
                             fun this _ ->
-                                let e = asList this
-                                <@@
-                                    match List.tryFind (fun (name, _) -> name = fieldName) %e with
-                                    | Some (_, value) -> Some value
-                                    | None -> None
-                                @@>)
+                                let fields = asList this
+                                let fieldName = Expr.Value(fieldName) |> Expr.Cast<string>
+                                let value =
+                                    <@
+                                        %fields
+                                        |> List.tryPick (fun (name, x) -> if name = %fieldName then Some x else None)
+                                    @>
+                                let outOpt = Expr.MapOption(fieldType, value, wrap)
+                                Expr.Coerce(outOpt, optTyp)
+                        )
                     | _, Ast.MaxMultiplicity.Multiple ->
                         let listTyp =
                             ProvidedTypeBuilder.MakeGenericType(
-                                typedefof<_ list>,
+                                typedefof<IEnumerable<_>>,
                                 [fieldType])
                         pdb.NewMethod(
                             sprintf "Get%ss" fieldName,
                             listTyp,
                             [],
                             fun this _ ->
-                                let e = asList this
-                                <@@
-                                    List.filter (fun (name, _) -> name = fieldName) %e
-                                    |> List.map snd
-                                @@>)
+                                let fields = asList this
+                                let fieldName = Expr.Value(fieldName) |> Expr.Cast<string>
+                                let values =
+                                    <@
+                                        %fields
+                                        |> List.choose (fun (name, x) -> if name = %fieldName then Some x else None)
+                                        :> IEnumerable<Ast.Value>
+                                    @>
+                                Expr.MapItems(fieldType, values, wrap)
+                        )
                 )
             |> Map.toList
             |> List.sortBy fst
@@ -738,8 +804,8 @@ type MissionTypes(config: TypeProviderConfig) as this =
     do assert (typeof<Parsing.Stream>.Assembly.GetName().Name = asm.GetName().Name)  
 
     let buildProvider (enableLogging : bool) (typeName : string, sample : string) =
-        //if not(String.IsNullOrWhiteSpace(System.Environment.GetEnvironmentVariable("TP_DEBUG"))) then
-        //    System.Diagnostics.Debugger.Launch() |> ignore
+        if not(String.IsNullOrWhiteSpace(System.Environment.GetEnvironmentVariable("TP_DEBUG"))) then
+            System.Diagnostics.Debugger.Launch() |> ignore
 
         let asm = ProvidedAssembly()
         let logInfo, closeLog =
