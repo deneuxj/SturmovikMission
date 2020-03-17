@@ -201,8 +201,8 @@ let ``T.Airfield has functional getters``() =
     let planes = T.Airfield.Planes.Default.SetPlane(planesList)
     let outPlanes = planes.GetPlanes()
     Assert.AreEqual(planesList.Head.Wrapped, Seq.head(outPlanes).Wrapped)
-    let airfield = T.Airfield.Default.SetPlanes(planes)
-    let read = airfield.GetPlanes()
+    let airfield = T.Airfield.Default.SetPlanes(Some planes)
+    let read = airfield.TryGetPlanes() |> Option.get
     Assert.AreEqual(planes.Wrapped, read.Wrapped)
 
 [<Test>]
