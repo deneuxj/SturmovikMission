@@ -132,6 +132,11 @@ module internal Internal =
         | Ast.ValueType.Date -> GroundType
         | _ -> ComplexType
 
+    /// Create a function that can build an Expr that constructs an instance of a generated type, given an Expr representing an Ast.Value
+    let wrap (fieldType : ProvidedTypeDefinition) =
+        let constructor = fieldType.GetConstructor([| typeof<Ast.Value> |])
+        fun (e : Expr<Ast.Value>) -> Expr.NewObjectUnchecked(constructor, [ e ])
+
     /// <summary>
     /// Build the function that builds ProvidedTypeDefinitions for ValueTypes encountered in the sample mission file.
     /// </summary>
@@ -142,10 +147,6 @@ module internal Internal =
         let cache = new Dictionary<TypeIdentification, ProvidedTypeDefinition>(HashIdentity.Structural)
 
         let asList this = <@ (%%this : Ast.Value).GetItems() @>
-
-        let wrap (fieldType : ProvidedTypeDefinition) =
-            let constructor = fieldType.GetConstructor([| typeof<Ast.Value> |])
-            fun (e : Expr<Ast.Value>) -> Expr.NewObjectUnchecked(constructor, [ e ])
 
         /// Add static property AstType to a generated type. It returns the ValueType.
         let addAstValueTypeProperty (ptyp : ProvidedTypeDefinition, vt : Ast.ValueType) =
@@ -754,17 +755,19 @@ module internal Internal =
                 <param name="name">Name of the subgroup</param>""")
         // Getters: list of objects of each type
         for (name, valueType, ptyp) in topComplexTypes do
+            let wrap = wrap ptyp
             parser.AddMember(
-                pdb.NewProperty(sprintf "ListOf%s" name, ProvidedTypeBuilder.MakeGenericType(typedefof<_ list>, [ptyp]), fun this ->
+                pdb.NewProperty(sprintf "ListOf%s" name, ProvidedTypeBuilder.MakeGenericType(typedefof<IEnumerable<_>>, [ptyp]), fun this ->
                     let this = Expr.Convert<GroupMembers>(this)
-                    <@@
-                        let ret =
-                            (%this).Items
-                            |> List.map (fun data -> data.GetLeaves())
-                            |> List.concat
-                            |> List.choose (function (name2, value) -> if name2 = name then Some value else None)
-                        ret
-                    @@>)
+                    let values =
+                        <@
+                            let ret =
+                                (%this).Items
+                                |> Seq.collect (fun data -> data.GetLeaves())
+                                |> Seq.choose (function (name2, value) -> if name2 = name then Some value else None)
+                            ret :> IEnumerable<_>
+                        @>
+                    Expr.MapItems(ptyp, values, wrap))
                 |> addXmlDoc (sprintf """<summary>Build a list of immutable instances of %s</summary>""" name))
         // Get the flattened list of objects as instances of McuBase and its subtypes, when appropriate
         parser.AddMember(

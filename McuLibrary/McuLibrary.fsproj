@@ -11,7 +11,7 @@
     <PackageReleaseNotes>Target .net standard 2.0 and framework 4.5</PackageReleaseNotes>
     <IncludeSource>true</IncludeSource>
     <PackageLicenseExpression>LGPL-3.0-or-later</PackageLicenseExpression>
-    <Version>2.0.0</Version>
+    <Version>2.0.1</Version>
     <PackageId>SturmovikMission.McuLibrary</PackageId>
     <Product>SturmovikMission.McuLibrary</Product>
     <Company />

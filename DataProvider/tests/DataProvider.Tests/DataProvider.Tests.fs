@@ -84,7 +84,7 @@ let ``T.MCU_TR_ComplexTrigger has its type properly properly inferred``() =
         | Some(ft, multMin, multMax) ->
             Assert.AreEqual(Ast.ValueType.Boolean, ft)
             Assert.AreEqual(Ast.MinMultiplicity.MinOne, multMin)
-            Assert.AreEqual(Ast.MaxMultiplicity.MaxOne, multMax)
+            Assert.AreEqual(Ast.MaxMultiplicity.Multiple, multMax)
         | None ->
             ()
 
@@ -168,7 +168,7 @@ let ``T.GroupData can create lists of MCUs``() =
     for mcu in mcus do
         printfn "%s" (mcu.AsString())
     let timers2 = group.ListOfMCU_Timer
-    Assert.AreEqual(timers.Length, timers2.Length, "ListOfMCU_Timer should contain the correct number of elements")
+    Assert.AreEqual(timers.Length, Seq.length timers2, "ListOfMCU_Timer should contain the correct number of elements")
 
 [<Test>]
 let ``T.GroupData can parse files``() =
@@ -190,7 +190,7 @@ let ``T.GroupData can parse files``() =
     for mcu in mcus do
         printfn "%s" (mcu.AsString())
     let timers2 = group.ListOfMCU_Timer
-    Assert.AreEqual(timers.Length, timers2.Length, "ListOfMCU_Timer should contain the correct number of elements")
+    Assert.AreEqual(timers.Length, Seq.length timers2, "ListOfMCU_Timer should contain the correct number of elements")
 
 [<Test>]
 let ``T.Airfield has functional getters``() =
@@ -201,8 +201,8 @@ let ``T.Airfield has functional getters``() =
     let planes = T.Airfield.Planes.Default.SetPlane(planesList)
     let outPlanes = planes.GetPlanes()
     Assert.AreEqual(planesList.Head.Wrapped, Seq.head(outPlanes).Wrapped)
-    let airfield = T.Airfield.Default.SetPlanes(planes)
-    let read = airfield.GetPlanes()
+    let airfield = T.Airfield.Default.SetPlanes(Some planes)
+    let read = airfield.TryGetPlanes() |> Option.get
     Assert.AreEqual(planes.Wrapped, read.Wrapped)
 
 [<Test>]
@@ -238,3 +238,20 @@ let ``T.Options.Time has a functional triplet value getter``() =
     let time = T.Options.Time.Create(T.Integer.N 1, T.Integer.N 2, T.Integer.N 3)
     let (h, m, s) = time.Value
     Assert.AreEqual((1, 2, 3), (h.Value, m.Value, s.Value))
+
+[<Test>]
+let ``T.GroupData has a functional ListOf... getter``() =
+    let vertices = 
+        [ T.FloatPair.N (0.0, 0.0)
+          T.FloatPair.N (1.0, 0.0)
+          T.FloatPair.N (1.0, 1.0) ]
+    let area =
+        T.MCU_TR_InfluenceArea.Default
+            .SetBoundary(
+                T.MCU_TR_InfluenceArea.Boundary.FromList vertices
+            )
+    let group = T.GroupData.Parse(Parsing.Stream.FromString(area.AsString()))
+    let areas = group.ListOfMCU_TR_InfluenceArea
+    let boundary = (Seq.head areas).GetBoundary()
+    let unwrap = List.map (fun (x : T.FloatPair) -> x.Value)
+    Assert.AreEqual(unwrap vertices, unwrap(List.ofSeq boundary.Value))
