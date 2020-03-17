@@ -84,7 +84,7 @@ let ``T.MCU_TR_ComplexTrigger has its type properly properly inferred``() =
         | Some(ft, multMin, multMax) ->
             Assert.AreEqual(Ast.ValueType.Boolean, ft)
             Assert.AreEqual(Ast.MinMultiplicity.MinOne, multMin)
-            Assert.AreEqual(Ast.MaxMultiplicity.MaxOne, multMax)
+            Assert.AreEqual(Ast.MaxMultiplicity.Multiple, multMax)
         | None ->
             ()
 
