@@ -252,10 +252,9 @@ let rec defaultValue (typ : ValueType) =
         m
         |> Map.toList
         |> List.choose (fun (name, (typ, minMult, maxMult)) ->
-            match minMult, maxMult with
-            | MinOne, MaxOne -> Some (name, defaultValue typ)
-            | Zero, _ -> None
-            | MinOne, Multiple -> Some (name, List [defaultValue typ]))
+            match minMult with
+            | MinOne -> Some (name, defaultValue typ)
+            | Zero -> None)
         |> List.fold (fun e x -> x :: e) []
         |> fun xs -> Composite xs
     | ValueType.Mapping _ -> Mapping []
