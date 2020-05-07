@@ -8,7 +8,7 @@
     <TargetFrameworks>netstandard2.0;net45</TargetFrameworks>
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
     <AssemblyName>SturmovikMission.DataProvider.Runtime</AssemblyName>
-    <Version>7.0.3</Version>
+    <Version>8.0.0</Version>
     <Authors>Johann Deneux &lt;johann.deneux@gmail.com&gt;</Authors>
     <Product>SturmovikMission.DataProvider</Product>
     <Copyright>Copyright 2018-2020 Johann Deneux</Copyright>
