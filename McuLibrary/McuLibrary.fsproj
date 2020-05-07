@@ -8,10 +8,11 @@
     <PackageProjectUrl>https://github.com/deneuxj/SturmovikMission</PackageProjectUrl>
     <RepositoryUrl>git@github.com:deneuxj/SturmovikMission.git</RepositoryUrl>
     <PackageVersion>2.0.0.0</PackageVersion>
-    <PackageReleaseNotes>Target .net standard 2.0 and framework 4.5</PackageReleaseNotes>
+    <PackageReleaseNotes>- Target .net standard 2.0 and framework 4.5
+- Fix bug in filterByPath (when path is shorter than prefix)</PackageReleaseNotes>
     <IncludeSource>true</IncludeSource>
     <PackageLicenseExpression>LGPL-3.0-or-later</PackageLicenseExpression>
-    <Version>2.0.1</Version>
+    <Version>2.0.2</Version>
     <PackageId>SturmovikMission.McuLibrary</PackageId>
     <Product>SturmovikMission.McuLibrary</Product>
     <Company />

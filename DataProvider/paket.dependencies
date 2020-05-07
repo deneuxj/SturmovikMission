@@ -10,9 +10,9 @@ nuget FsPickler >= 5.3.2
 nuget NETStandard.Library.NETFramework
 # nuget System.Text.Encoding.CodePages
 
-# THis lines are used by Paket to get the latest version of the Type Provider SDK files
-github fsprojects/FSharp.TypeProviders.SDK src/ProvidedTypes.fsi
-github fsprojects/FSharp.TypeProviders.SDK src/ProvidedTypes.fs
+# These lines are used by Paket to get a specific version of the Type Provider SDK files
+github fsprojects/FSharp.TypeProviders.SDK:6e3933d4e5c83049cbd2e51237ebf1faae9e657d src/ProvidedTypes.fsi
+github fsprojects/FSharp.TypeProviders.SDK:6e3933d4e5c83049cbd2e51237ebf1faae9e657d src/ProvidedTypes.fs
 
 group Test
   source https://nuget.org/api/v2

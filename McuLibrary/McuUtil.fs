@@ -6,11 +6,14 @@ open System.Collections.Generic
 
 /// Get Mcus in a group
 let filterByPath (prefix : string list) (mcus : #McuBase list) =
-    let prefixesMatch prefix path =
-        Seq.forall2 (=) prefix (Seq.map fst path)
+    let rec hasPrefix prefix path =
+        match prefix, path with
+        | [], _ -> true
+        | a :: prefix, (b, _) :: path -> a = b && hasPrefix prefix path
+        | _ :: _, [] -> false
     mcus
     |> Seq.map (fun mcu -> mcu :> McuBase)
-    |> Seq.filter (fun mcu -> prefixesMatch prefix mcu.Path)
+    |> Seq.filter (fun mcu -> hasPrefix prefix mcu.Path)
 
 /// Get Mcus by their name
 let filterByName (name : string) (mcus : #McuBase list) =
