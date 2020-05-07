@@ -29,6 +29,7 @@ let regex pat =
 
 let reBool = regex(@"\G\s*(0|1)[^.\d]")
 let reInt = regex(@"\G\s*([+-]?\d+)\s*[^.\d]")
+let reMask = regex(@"\G\s*([01]+)\s*[^.\d]")
 let reId = regex(@"\G\s*([a-zA-Z0-9_]+)")
 let reString = regex("\G\\s*\"([^\"]*)\"")
 let reFloat = regex(@"\G\s*([+-]?\d+[.]\d+)")
@@ -75,6 +76,14 @@ let (|ReInt|_|) (SubString(data, offset)) =
     let g = m.Groups.[1]
     if m.Success then
         Some (Int32.Parse g.Value, SubString(data, g.Index + g.Length))
+    else
+        None
+
+let (|ReMask|_|) (SubString(data, offset)) =
+    let m = reMask.Match(data, offset)
+    let g = m.Groups.[1]
+    if m.Success then
+        Some (System.Convert.ToInt64(g.Value, 2), SubString(data, g.Index + g.Length))
     else
         None
 
@@ -179,6 +188,11 @@ let parseInteger =
     | ReInt (x, s) -> (Value.Integer x, s)
     | s -> parseError("Not an integer", s)
 
+let parseMask =
+    function
+    | ReMask (x, s) -> (Value.Mask x, s)
+    | s -> parseError("Not a bit mask", s)
+
 let parseString =
     function
     | ReString (x, s) -> (Value.String x, s)
@@ -242,6 +256,7 @@ and makeParser (format : ValueType) : ParserFun =
     match format with
     | ValueType.Boolean -> parseBool
     | ValueType.Integer -> parseInteger
+    | ValueType.Mask -> parseMask
     | ValueType.String -> parseString
     | ValueType.Float -> parseFloat
     | ValueType.FloatPair -> parseFloatPair

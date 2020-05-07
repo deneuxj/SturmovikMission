@@ -47,6 +47,7 @@ let most =
 type ValueType =
     | Boolean
     | Integer
+    | Mask
     | String
     | Float
     | Composite of Map<string, ValueType * MinMultiplicity * MaxMultiplicity>
@@ -59,14 +60,14 @@ type ValueType =
     | FloatPair
 
 let groundValueTypes =
-    [ ValueType.Boolean; ValueType.Date; ValueType.Float; ValueType.FloatPair; ValueType.IntVector; ValueType.Integer; ValueType.String ]
+    [ ValueType.Boolean; ValueType.Date; ValueType.Float; ValueType.FloatPair; ValueType.IntVector; ValueType.Integer; ValueType.Mask; ValueType.String ]
 
 let groundValueTypeNames =
-    [ "Boolean"; "Date"; "Float"; "FloatPair"; "IntVector"; "Integer"; "String" ]
+    [ "Boolean"; "Date"; "Float"; "FloatPair"; "IntVector"; "Integer"; "Mask"; "String" ]
 
 let isGroundType x =
     match x with
-    | Boolean | Integer | String | Float | IntVector | Date | FloatPair -> true
+    | Boolean | Integer | Mask | String | Float | IntVector | Date | FloatPair -> true
     | _ -> false
 
 let (|NameOfGroundType|_|) x =
@@ -77,6 +78,7 @@ let (|NameOfGroundType|_|) x =
 type Value =
     | Boolean of bool
     | Integer of int
+    | Mask of int64
     | String of string
     | Float of float
     | FloatPair of float * float
@@ -96,6 +98,10 @@ with
         match this with
         | Integer n -> n
         | _ -> invalidOp "Not an Integer"
+    member this.GetMask() =
+        match this with
+        | Mask n -> n
+        | _ -> invalidOp "Not a Mask"
     member this.GetString() =
         match this with
         | String s -> s
@@ -246,6 +252,7 @@ let rec defaultValue (typ : ValueType) =
     match typ with
     | ValueType.Boolean -> Boolean false
     | ValueType.Integer -> Integer 0
+    | ValueType.Mask -> Mask 0L
     | ValueType.String -> String ""
     | ValueType.Float -> Float 0.0
     | ValueType.Composite m ->
@@ -269,6 +276,7 @@ let rec dump (value : Value) : string =
     match value with
     | Boolean b -> if b then "1" else "0"
     | Integer i -> sprintf "%d" i
+    | Mask m -> System.Convert.ToString(m, 2)
     | String s -> sprintf "\"%s\"" s
     | Float f -> sprintf "%f" f
     | FloatPair(x, y) -> sprintf "%f, %f" x y
