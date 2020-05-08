@@ -122,15 +122,7 @@ module internal Internal =
     }
 
     let (|GroundType|ComplexType|) kind =
-        match kind with
-        | Ast.ValueType.Boolean
-        | Ast.ValueType.Float
-        | Ast.ValueType.FloatPair
-        | Ast.ValueType.Integer
-        | Ast.ValueType.String
-        | Ast.ValueType.IntVector
-        | Ast.ValueType.Date -> GroundType
-        | _ -> ComplexType
+        if Ast.isGroundType kind then GroundType else ComplexType
 
     /// Create a function that can build an Expr that constructs an instance of a generated type, given an Expr representing an Ast.Value
     let wrap (fieldType : ProvidedTypeDefinition) =
@@ -184,6 +176,14 @@ module internal Internal =
             ptyp.AddMember(pdb.NewNamedConstructor("N", ptyp, [("value", typeof<int>)], fun args -> let value = args.[0] in <@ Ast.Value.Integer (%%value : int) @>))
             ptyp.AddMember(pdb.NewNamedConstructor("Default", ptyp, [], fun _ -> <@ Ast.Value.Integer 0 @>))
             addAstValueTypeProperty(ptyp, Ast.ValueType.Integer)
+            ptyp
+
+        let ptypMask =
+            let ptyp = pdb.NewWrapper("Mask")
+            ptyp.AddMember(pdb.NewProperty("Value", typeof<int64>, fun this -> <@@ (%this : Ast.Value).GetMask() @@>))
+            ptyp.AddMember(pdb.NewNamedConstructor("N", ptyp, [("value", typeof<int64>)], fun args -> let value = args.[0] in <@ Ast.Value.Mask (%%value : int64) @>))
+            ptyp.AddMember(pdb.NewNamedConstructor("Default", ptyp, [], fun _ -> <@ Ast.Value.Mask 0L @>))
+            addAstValueTypeProperty(ptyp, Ast.ValueType.Mask)
             ptyp
 
         let ptypString =
@@ -247,6 +247,7 @@ module internal Internal =
                     | Ast.ValueType.Float -> ptypFloat
                     | Ast.ValueType.FloatPair -> ptypFloatPair
                     | Ast.ValueType.Integer -> ptypInteger
+                    | Ast.ValueType.Mask -> ptypMask
                     | Ast.ValueType.String -> ptypString
                     | Ast.ValueType.IntVector -> ptypIntVector
                     | Ast.ValueType.Date -> ptypDate

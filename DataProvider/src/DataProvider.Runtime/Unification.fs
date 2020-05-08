@@ -24,18 +24,25 @@ exception UnificationFailure of string
 let mkFailedUnification kind1 kind2 msg =
     sprintf "Failed to unify %A and %A (%s)" kind1 kind2 msg
 
+let (|LikeInteger|_|) =
+    function
+    | ValueType.Boolean
+    | ValueType.Integer
+    | ValueType.Mask -> Some()
+    | _ -> None
+
 let rec tryUnify =
     function
     | kind1, kind2 when kind1 = kind2 ->
         Ok(kind1)
+    | ValueType.Boolean, ValueType.Mask
+    | ValueType.Mask, ValueType.Boolean ->
+        Ok(ValueType.Mask)
     | ValueType.Boolean, ValueType.Integer
     | ValueType.Integer, ValueType.Boolean ->
         Ok(ValueType.Integer)
-    | ValueType.Boolean, ValueType.Float
-    | ValueType.Float, ValueType.Boolean ->
-        Ok(ValueType.Float)
-    | ValueType.Integer, ValueType.Float
-    | ValueType.Float, ValueType.Integer ->
+    | LikeInteger, ValueType.Float
+    | ValueType.Float, LikeInteger ->
         Ok(ValueType.Float)
     | ValueType.Composite comp, ValueType.Mapping kind
     | ValueType.Mapping kind, ValueType.Composite comp ->

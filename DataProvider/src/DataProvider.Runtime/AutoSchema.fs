@@ -52,7 +52,12 @@ let rec tryParseAsComposite (s : Stream) =
 //                    printfn "Failed to parse RHS %s" (getContext s)
                     None
             | ReId(n, ReLit "=" s) ->
-                match tryParse s with
+                let f =
+                    if n.ToLowerInvariant().Contains("mask") then
+                        fun s -> tryParseAsMask s |> Option.orElseWith (fun () -> tryParse s)
+                    else
+                        tryParse
+                match f s with
                 | Some (kind, s) ->
                     let subTypes = unifyMultMap n (kind, MinOne, MaxOne) subTypes
                     match s with
@@ -235,6 +240,11 @@ and tryParseAsInt =
     | ReInt(n, s) -> Some(ValueType.Integer, s)
     | _ -> None
 
+and tryParseAsMask =
+    function
+    | ReMask(n, s) -> Some(ValueType.Mask, s)
+    | _ -> None
+
 and tryParseAsString =
     function
     | ReString(n, s) -> Some(ValueType.String, s)
@@ -392,13 +402,13 @@ let rec getTopType types s =
                 | Some (kind2, s) ->
                     unifyMap n kind2 types, s
                 | None ->
-                    parseError("Failed to extend seen structure", s)
+                    parseError(sprintf "Failed to extend seen structure '%s'" n, s)
         | None ->
             match (wrap "COMP" tryParseAsComposite) s with
             | Some (kind, s) ->
                 Map.add n kind types, s
             | None ->
-                parseError("Failed to guess unseen structure", s)
+                parseError(sprintf "Failed to guess unseen structure '%s'" n, s)
     | _ ->
         parseError("No structure identifier found", s)
 

@@ -384,7 +384,7 @@ type HasEntity =
     abstract Country : CountryValue option with get, set
     abstract NumberInFormation : NumberInFormationData option
     abstract PayloadId : int option with get, set
-    abstract WMMask : int option with get, set
+    abstract WMMask : int64 option with get, set
     abstract AILevel : int option with get, set
 
 /// <summary>
