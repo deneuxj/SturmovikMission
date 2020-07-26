@@ -18,7 +18,7 @@ GROUP Test
 RESTRICTION: || (== net461) (== netcoreapp3.1)
 NUGET
   remote: https://www.nuget.org/api/v2
-    FSharp.Core (4.7.1)
+    FSharp.Core (4.7.2)
     Microsoft.DotNet.InternalAbstractions (1.0.0) - version_in_path: true, restriction: || (&& (== net461) (>= netcoreapp2.1)) (== netcoreapp3.1)
       System.AppContext (>= 4.1) - restriction: || (&& (== net461) (< net451)) (== netcoreapp3.1)
       System.Collections (>= 4.0.11) - restriction: || (&& (== net461) (< net451)) (== netcoreapp3.1)
@@ -28,7 +28,7 @@ NUGET
       System.Runtime.Extensions (>= 4.1) - restriction: || (&& (== net461) (< net451)) (== netcoreapp3.1)
       System.Runtime.InteropServices (>= 4.1) - restriction: || (&& (== net461) (< net451)) (== netcoreapp3.1)
       System.Runtime.InteropServices.RuntimeInformation (>= 4.0) - restriction: || (&& (== net461) (< net451)) (== netcoreapp3.1)
-    Microsoft.NETCore.Platforms (3.1.0) - version_in_path: true, restriction: || (&& (== net461) (>= netcoreapp2.1)) (== netcoreapp3.1)
+    Microsoft.NETCore.Platforms (3.1.1) - version_in_path: true, restriction: || (&& (== net461) (>= netcoreapp2.1)) (== netcoreapp3.1)
     Microsoft.NETCore.Targets (3.1.0) - version_in_path: true, restriction: || (&& (== net461) (>= netcoreapp2.1)) (== netcoreapp3.1)
     Microsoft.Win32.Primitives (4.3.0) - version_in_path: true, restriction: || (&& (== net461) (>= netcoreapp2.1)) (== netcoreapp3.1)
       Microsoft.NETCore.Platforms (>= 1.1) - restriction: || (&& (== net461) (< net46)) (== netcoreapp3.1)
@@ -54,7 +54,7 @@ NUGET
     NUnit.Extension.NUnitV2ResultWriter (3.6)
     NUnit.Extension.TeamCityEventListener (1.0.7)
     NUnit.Extension.VSProjectLoader (3.8)
-    NUnit3TestAdapter (3.16.1) - version_in_path: true
+    NUnit3TestAdapter (3.17.0) - version_in_path: true
       Microsoft.DotNet.InternalAbstractions (>= 1.0) - restriction: || (&& (== net461) (>= netcoreapp2.1)) (== netcoreapp3.1)
       System.ComponentModel.EventBasedAsync (>= 4.3) - restriction: || (&& (== net461) (>= netcoreapp2.1)) (== netcoreapp3.1)
       System.ComponentModel.TypeConverter (>= 4.3) - restriction: || (&& (== net461) (>= netcoreapp2.1)) (== netcoreapp3.1)

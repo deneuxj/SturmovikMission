@@ -1,6 +1,6 @@
 type file
 id SturmovikMission.DataProvider
-version 8.0.0
+version 8.0.1
 authors
     Johann Deneux
 owners

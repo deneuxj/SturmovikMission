@@ -234,6 +234,15 @@ let ``T.Block.Damaged has a functional getter for maps``() =
     Assert.AreEqual(unwrap damages, unwrap damagesOut)
 
 [<Test>]
+// run-time error with 8.0.0
+let ``T.Block has a functional setter for damages``() =
+    let block = T.Block.Default
+    let damaged = block.TryGetDamaged() |> Option.defaultValue T.Block.Damaged.Default
+    let damaged = damaged.SetItem(0, T.Float.N 1.0)
+    Assert.DoesNotThrow(fun () -> block.SetDamaged(Some damaged) |> ignore)
+    Assert.True(true)
+
+[<Test>]
 let ``T.Options.Time has a functional triplet value getter``() =
     let time = T.Options.Time.Create(T.Integer.N 1, T.Integer.N 2, T.Integer.N 3)
     let (h, m, s) = time.Value

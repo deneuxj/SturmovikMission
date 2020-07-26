@@ -316,7 +316,8 @@ module internal Internal =
                                 let value = Expr.Convert<AstValueWrapper>(value)
                                 <@@
                                     let this = (%this : Ast.Value)
-                                    this.SetItem((%%key : int), (%value).Wrapped)
+                                    let this2 = this.SetItem((%%key : int), (%value).Wrapped)
+                                    AstValueWrapper(this2)
                                 @@>
                             | _ ->
                                 failwith "Unmatched list of parameters and arguments"))
@@ -325,13 +326,15 @@ module internal Internal =
                             let key = args.[0]
                             <@@
                                 let this = (%this : Ast.Value)
-                                this.RemoveItem(%%key : int)
+                                let this2 = this.RemoveItem(%%key : int)
+                                AstValueWrapper(this2)
                             @@>))
                         // Clear map
                         ptyp.AddMember(pdb.NewMethod("Clear", ptyp, [], fun this _ ->
                             <@@
                                 let this = (%this : Ast.Value)
-                                this.Clear()
+                                let this2 = this.Clear()
+                                AstValueWrapper(this2)
                             @@>))
                         // Result
                         ptyp
