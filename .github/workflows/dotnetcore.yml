@@ -12,20 +12,23 @@ jobs:
     - name: Setup .NET Core
       uses: actions/setup-dotnet@v1
       with:
-        dotnet-version: 2.2.108
+        dotnet-version: 3.1
     - name: Get paket
       run: |
         cd DataProvider
         dotnet tool restore
         dotnet paket update
+      shell: bash
     - name: Build and test
       run: |
         dotnet build -c release
         dotnet test -c release
+      shell: bash
     - name: Build NuGet package with paket
       run: |
         cd DataProvider
         dotnet paket pack nuget
+      shell: bash      
     - name: Create artifact
       uses: actions/upload-artifact@v1
       with:
