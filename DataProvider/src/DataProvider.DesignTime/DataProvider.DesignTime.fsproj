@@ -10,7 +10,7 @@
     <RestoreProjectStyle>PackageReference</RestoreProjectStyle>
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
     <AssemblyName>SturmovikMission.DataProvider.DesignTime</AssemblyName>
-    <Version>8.0.1</Version>
+    <Version>8.0.2</Version>
     <Authors>Johann Deneux &lt;johann.deneux@gmail.com&gt;</Authors>
     <Product>SturmovikMission.DataProvider</Product>
     <Copyright>Copyright 2018-2020 Johann Deneux</Copyright>
