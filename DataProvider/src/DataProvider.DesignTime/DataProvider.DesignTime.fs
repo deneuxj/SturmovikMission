@@ -401,7 +401,7 @@ module internal Internal =
                     "Value", 
                     propTyp, 
                     fun this ->
-                        let tp = <@@ (%this : Ast.Value).GetTriplet() @@>
+                        let tp = <@@ (%this : Ast.Value).GetPair() @@>
                         Expr.NewTuple [
                             Expr.TupleGetUnchecked(tp, 0) |> Expr.Cast<Ast.Value> |> wrap ptyp1
                             Expr.TupleGetUnchecked(tp, 1) |> Expr.Cast<Ast.Value> |> wrap ptyp2

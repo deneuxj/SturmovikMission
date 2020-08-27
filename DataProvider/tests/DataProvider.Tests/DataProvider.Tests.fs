@@ -264,3 +264,16 @@ let ``T.GroupData has a functional ListOf... getter``() =
     let boundary = (Seq.head areas).GetBoundary()
     let unwrap = List.map (fun (x : T.FloatPair) -> x.Value)
     Assert.AreEqual(unwrap vertices, unwrap(List.ofSeq boundary.Value))
+
+[<Test>]
+let ``T.Options.Countries pairs can be accessed as pairs``() =
+    let countries =
+        T.Options.Countries.FromList [
+            T.Options.Countries.Countries_ValueType.Create(T.Integer.N 0, T.Integer.N 0)
+            T.Options.Countries.Countries_ValueType.Create(T.Integer.N 201, T.Integer.N 1)
+        ]
+    Assert.DoesNotThrow(fun () ->
+        for pair in countries.Value do
+            let country, coalition = pair.Value
+            ()
+    )
