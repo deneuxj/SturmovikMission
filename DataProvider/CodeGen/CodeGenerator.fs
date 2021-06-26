@@ -23,7 +23,7 @@ open System
 open System.IO
 open SturmovikMission.Cached
 open SturmovikMission.DataProvider
-open SturmovikMission.ProvidedDataBuilder
+open SturmovikMission.MiniAst
 
 module internal Internal =
     open SturmovikMission.Expr.AstExtensions

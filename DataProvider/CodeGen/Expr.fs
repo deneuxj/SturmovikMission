@@ -22,7 +22,7 @@ open System.Collections.Generic
 module internal AstExtensions =
     open SturmovikMission.DataProvider.Ast
     open SturmovikMission
-    open SturmovikMission.ProvidedDataBuilder
+    open SturmovikMission.MiniAst
     open MBrace.FsPickler
 
     let private valueTypeToExprCache = new Dictionary<ValueType, MyAst<ValueType>>(HashIdentity.Structural)

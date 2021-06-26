@@ -6,7 +6,7 @@
     <WarnOn>3390;$(WarnOn)</WarnOn>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="ProvidedDataBuilder.fs" />
+    <Compile Include="MiniAst.fs" />
     <Compile Include="Expr.fs" />
     <Compile Include="UniqueNames.fs" />
     <Compile Include="FileWithTime.fs" />
