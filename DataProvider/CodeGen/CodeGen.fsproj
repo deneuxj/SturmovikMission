@@ -1,0 +1,26 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net5.0</TargetFramework>
+    <WarnOn>3390;$(WarnOn)</WarnOn>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="ProvidedDataBuilder.fs" />
+    <Compile Include="Expr.fs" />
+    <Compile Include="UniqueNames.fs" />
+    <Compile Include="FileWithTime.fs" />
+    <Compile Include="Logging.fs" />
+    <Compile Include="Unification.fs" />
+    <Compile Include="Parsing.fs" />
+    <Compile Include="AutoSchema.fs" />
+    <Compile Include="McuFactory.fs" />
+    <Compile Include="CodeGenerator.fs" />
+    <Compile Include="Program.fs" />
+    <None Include="paket.references" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\McuLibrary\McuLibrary.fsproj" />
+  </ItemGroup>
+  <Import Project="..\.paket\Paket.Restore.targets" />
+</Project>

@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "CodeGen": {
+      "commandName": "Project",
+      "commandLineArgs": "-i $(ProjectDir)\\..\\..\\data\\Sample.Mission -o T.fs"
+    }
+  }
+}
