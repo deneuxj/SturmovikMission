@@ -34,7 +34,7 @@ module internal AstExtensions =
         serializer.Serialize(writer, typ)
         let s = writer.ToString()
         [
-            $"let reader = new System.IO.StringReader({s})"
+            $"let reader = new System.IO.StringReader(\"\"\"{s}\"\"\")"
             "let serializer = XmlSerializer()"
             "serializer.Deserialize<ValueType>(reader)"
         ]
@@ -56,7 +56,7 @@ module internal AstExtensions =
             {|
                 Indent = 0
                 Code = [
-                    $"let reader = new System.IO.StringReader({s})"
+                    $"let reader = new System.IO.StringReader(\"\"\"{s}\"\"\")"
                     "let serializer = XmlSerializer()"
                     $"serializer.Deserialize<Map<{typeof<'K>.Name}, ValueType>>(reader)"
                 ]

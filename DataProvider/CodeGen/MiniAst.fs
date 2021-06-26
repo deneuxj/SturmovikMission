@@ -22,8 +22,9 @@ open System
 type Kind =
     Kind of string
 with
-    static member OfType<'T>() =
-        Kind(typeof<'T>.Name)
+    override this.ToString() =
+        let (Kind s) = this
+        s
 
 type MyAst =
     | Leaf of {| Code: string list; Indent: int |}
@@ -77,7 +78,12 @@ module MyAst =
         match asSingleLine left, asSingleLine right with
         | Some left, Some right ->
             line $"{left}{op}{right}"
-        | _ ->
+        | Some left, None ->
+            node 0 [
+                line $"{left}{op}"
+                right.Indent(1)
+            ]
+        | None, _ ->
             node 0 [
                 line "("
                 node 0 [
@@ -106,8 +112,7 @@ module MyAst =
             ]
 
     let call left right =
-        infix " " left right
-        |> paren
+        infix " " left (paren right)
 
     let typed<'T> e : MyAst<'T> = { Untyped = e }
 
@@ -196,5 +201,6 @@ type ModuleDefinition =
                 | Choice1Of2 cl->
                     yield cl.Ast.Indent(1)
                 | Choice2Of2 m ->
-                    yield m.Ast.Indent(1)
+                    if m.Content.Count > 0 then
+                        yield m.Ast.Indent(1)
         ]

@@ -12,15 +12,18 @@ NUGET
     System.Reflection.Emit.Lightweight (4.7)
 
 GROUP Test
-RESTRICTION: || (== net461) (== net50)
+RESTRICTION: || (== net48) (== net50)
 NUGET
   remote: https://www.nuget.org/api/v2
     FSharp.Core (5.0.2)
-    Microsoft.NETCore.Platforms (5.0.2) - restriction: || (&& (== net461) (< net35) (>= netstandard2.0)) (&& (== net461) (>= netcoreapp2.0)) (&& (== net461) (< netstandard1.0) (>= netstandard2.0) (>= win8)) (&& (== net461) (< netstandard1.3) (>= netstandard2.0) (>= wpa81)) (&& (== net461) (>= netstandard2.0) (>= uap10.0)) (&& (== net461) (>= netstandard2.0) (>= uap10.1)) (&& (== net461) (>= netstandard2.0) (>= wp8)) (== net50)
-    NETStandard.Library (2.0.3) - restriction: || (&& (== net461) (< net35) (>= netstandard2.0)) (== net50)
+    FsPickler (5.3.2)
+      FSharp.Core (>= 4.3.2)
+      System.Reflection.Emit.Lightweight (>= 4.3) - restriction: || (&& (== net48) (< net45)) (== net50)
+    Microsoft.NETCore.Platforms (5.0.2) - restriction: || (&& (== net48) (< net35)) (&& (== net48) (>= netcoreapp2.0)) (&& (== net48) (< netstandard1.0) (>= win8)) (&& (== net48) (< netstandard1.3) (>= wpa81)) (&& (== net48) (< netstandard1.5) (>= uap10.0)) (&& (== net48) (>= uap10.1)) (&& (== net48) (>= wp8)) (== net50)
+    NETStandard.Library (2.0.3) - restriction: || (&& (== net48) (< net35)) (== net50)
       Microsoft.NETCore.Platforms (>= 1.1)
     NUnit (3.13.2)
-      NETStandard.Library (>= 2.0) - restriction: || (&& (== net461) (< net35) (>= netstandard2.0)) (== net50)
+      NETStandard.Library (>= 2.0) - restriction: || (&& (== net48) (< net35)) (== net50)
     NUnit.Console (3.12)
       NUnit.ConsoleRunner (>= 3.12)
       NUnit.Extension.NUnitProjectLoader (>= 3.6)
@@ -35,3 +38,4 @@ NUGET
     NUnit.Extension.TeamCityEventListener (1.0.7)
     NUnit.Extension.VSProjectLoader (3.8)
     NUnit3TestAdapter (4.0.0) - version_in_path: true
+    System.Reflection.Emit.Lightweight (4.7) - restriction: || (&& (== net48) (< net45)) (== net50)

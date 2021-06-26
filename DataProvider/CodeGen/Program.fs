@@ -6,6 +6,7 @@ open SturmovikMission.DataProvider.CodeGenerator
 type Settings = {
     Input : string
     Output : string
+    GeneratedNamespace : string
     PrintUsage : bool
 }
 with
@@ -13,6 +14,7 @@ with
         {
             Input = ""
             Output = ""
+            GeneratedNamespace = "SturmovikMission"
             PrintUsage = false
         }
 
@@ -29,6 +31,11 @@ with
                     Output = path
                 }
                 |> work rest
+            | "-n" :: ns :: rest ->
+                { settings with
+                    GeneratedNamespace = ns
+                }
+                |> work rest
             | ("-h" | "--help" | "/?") :: rest ->
                 { Settings.Default with PrintUsage = true }
             | [] ->
@@ -43,7 +50,7 @@ let main argv =
     let settings = Settings.FromArgv argv
     if settings.PrintUsage then
         """
-CodeGen -i <sample mission file> -o <output source code file>
+CodeGen -i <sample mission file> -o <output source code file> -n <namespace>
 
 Analyze IL-2 Sturmovik: Great Battles sample mission file to infer schema,
 and generate data types.
@@ -59,7 +66,7 @@ and generate data types.
             eprintfn "Cannot open '%s' for reading" settings.Input
             1
         else
-        let sourceCode = generateCode(false, "T", settings.Input)
+        let sourceCode = generateCode(false, settings.GeneratedNamespace, settings.Input)
         if String.IsNullOrWhiteSpace(settings.Output) then
             printfn "%s" sourceCode
             0

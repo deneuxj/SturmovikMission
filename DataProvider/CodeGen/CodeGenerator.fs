@@ -36,7 +36,7 @@ module internal Internal =
                 {
                     Name = name
                     Doc = []
-                    Args = ["value", Kind.OfType<Ast.Value>()]
+                    Args = ["value", Kind "Ast.Value"]
                     Body = MyAst.line "inherit AstValueWrapper(value)"
                     Members = ResizeArray()
                 }
@@ -117,7 +117,7 @@ module internal Internal =
 
         /// Add static property AstType to a generated type. It returns the ValueType.
         let addAstValueTypeProperty (ptyp : ClassDefinition, vt : Ast.ValueType) =
-            ptyp.AddMember(newStaticProperty("AstType", Kind.OfType<Ast.ValueType>(), vt.ToExpr().Untyped))
+            ptyp.AddMember(newStaticProperty("AstType", Kind "Ast.ValueType", vt.ToExpr().Untyped))
 
         // Builders for the ground types
 
@@ -442,7 +442,7 @@ module internal Internal =
                                 "let fields =" |> MyAst.line
                                 fields.Indent(1)
                                 "fields" |> MyAst.line
-                                $"|> List.choose (fun (name, x) -> if name = \"{fieldName}\" then Some x else None" |> MyAst.line
+                                $"|> List.choose (fun (name, x) -> if name = \"{fieldName}\" then Some x else None)" |> MyAst.line
                                 $"|> List.seq (fun x -> {fieldType.Name}(x))" |> MyAst.line
                             ]
                         newMethod(sprintf "Get%ss" fieldName, listTyp, [], body)
@@ -495,20 +495,20 @@ module internal Internal =
                     let s = writer.ToString()
                     let body =
                         [
-                            $"let reader = new System.IO.StringReader({s})"
+                            $"let reader = new System.IO.StringReader(\"\"\"{s}\"\"\")"
                             "let serializer = XmlSerializer()"
                             "let f = serializer.Deserialize<Ast.Value -> Mcu.McuBase>(reader)"
                             "f(this.Wrapped)"
                         ]
                         |> MyAst.leaf
-                    yield newMethod("CreateMcu", Kind.OfType<Mcu.McuBase>(), [], body)
+                    yield newMethod("CreateMcu", Kind "Mcu.McuBase", [], body)
                 | None -> ()
             ]
 
         // static method to create a parser
         and staticParser (valueType : Ast.ValueType, name, ptyp) =
             let vtExpr = valueType.ToExpr()
-            let retType = Kind.OfType<Parsing.ParserFun>()
+            let retType = Kind "Parsing.ParserFun"
 
             let body =
                 MyAst.node 0 [
@@ -517,7 +517,7 @@ module internal Internal =
                     MyAst.line "fun (s : Parsing.Stream) ->"
                     MyAst.node 1 [
                         MyAst.line "let (Parsing.SubString(data, offset)) = s"
-                        MyAst.line "if data.Substring(offset).StartsWith((%%name : string)) then"
+                        MyAst.line $"if data.Substring(offset).StartsWith({name}) then"
                         MyAst.node 1 [
                             MyAst.line $"let s = Parsing.SubString(data, offset + {name}.Length)"
                             MyAst.line "bodyParser.Run s"
@@ -562,14 +562,14 @@ module internal Internal =
                 MyAst.line "|> List.collect (fun data -> data.GetLeavesWithPath())"
                 MyAst.line "|> List.choose (fun (path, name, value) ->"
                 MyAst.node 1 [
-                    MyAst.line "Map.tryFind name mcuMakerOfName with"
+                    MyAst.line "match Map.tryFind name mcuMakerOfName with"
                     MyAst.line "| Some(Some(make)) -> Some(make(value, path))"
                     MyAst.line "| _ -> None"
                 ]
                 MyAst.line ")"
             ]
 
-        let method = newMethod("CreateMcuList", Kind.OfType<Mcu.McuBase list>(), [], body)
+        let method = newMethod("CreateMcuList", Kind "Mcu.McuBase list", [], body)
 
         logInfo "Done building the MCU list builder method"
 
@@ -583,7 +583,7 @@ module internal Internal =
     /// <param name="topComplexTypes">Complex types that aren't nested in other types.</param>
     let buildGroupParserType logInfo (namedValueTypes : (string * Ast.ValueType * ClassDefinition) list) (topComplexTypes : (string * Ast.ValueType * ClassDefinition) list) =
         logInfo "Started building the group parser type"
-        let dataListType = Kind.OfType<Ast.Data list>()
+        let dataListType = Kind "Ast.Data list"
         let body =
             MyAst.node 0 [
                 "inherit GroupMembers(nodes)" |> MyAst.line
@@ -616,7 +616,7 @@ module internal Internal =
                             MyAst.line "Parsing.parseFile getParser s"
                         ]
                     MyAst.call (MyAst.line "GroupData") nodes
-                newStaticMethod("Parse", parser.AsKind, [("s", Kind.OfType<Parsing.Stream>())], body)
+                newStaticMethod("Parse", parser.AsKind, [("s", Kind "Parsing.Stream")], body)
             { constructor with
                 Doc = [
                     """<summary>Parse a mission or group file and store the extracted data.</summary>"""
@@ -634,7 +634,7 @@ module internal Internal =
                             MyAst.line "|> List.collect (fun node -> node.FindByPath [name])"
                         ]
                     MyAst.call (MyAst.line "GroupData") nodes
-                newMethod("GetGroup", parser.AsKind, [("name", Kind.OfType<string>())], body)
+                newMethod("GetGroup", parser.AsKind, [("name", Kind "string")], body)
             { constructor with
                 Doc = [
                     """<summary>Get data from a subgroup</summary>"""
@@ -648,7 +648,7 @@ module internal Internal =
                     MyAst.node 0 [
                         MyAst.line "this.Items"
                         MyAst.line "|> Seq.collect (fun data -> data.GetLeaves())"
-                        MyAst.line $"|> Seq.choose (fun (name, value) -> if name = \"{name}\" then Some {ptyp.Name}(value) else None"
+                        MyAst.line $"|> Seq.choose (fun (name, value) -> if name = \"{name}\" then Some ({ptyp.Name}(value)) else None)"
                     ]
                 newProperty(sprintf "ListOf%s" name, Kind $"{ptyp.Name} seq", body))
         // Get the flattened list of objects as instances of McuBase and its subtypes, when appropriate
@@ -657,23 +657,6 @@ module internal Internal =
         logInfo "Done building the group parser type"
         // Return result
         parser
-
-    /// <summary>
-    /// Start a background async that waits for a file to change
-    /// </summary>
-    /// <param name="path">Path to file to watch</param>
-    /// <param name="signal">Action to perform when the watched file changes</param>
-    let watchFile (path : string) signal =
-        let watcher = new FileSystemWatcher(Path.GetDirectoryName(path), Path.GetFileName(path))
-        watcher.NotifyFilter <- NotifyFilters.LastWrite
-        let wait =
-            async {
-                let! change = Async.AwaitEvent watcher.Changed
-                signal()
-                watcher.Dispose()
-            }
-        watcher.EnableRaisingEvents <- true
-        Async.Start wait
 
 /// Entry point of the type provider.
 let generateCode(enableLogging : bool, nsName : string, sample : string) =
@@ -688,6 +671,11 @@ let generateCode(enableLogging : bool, nsName : string, sample : string) =
     // The types corresponding to the ValueTypes extracted from the sample file
     let getProvidedType, cache = Internal.mkProvidedTypeBuilder logInfo
     let types, _ = AutoSchema.getTopTypes(Parsing.Stream.FromFile(sample))
+    // Add top types
+    let topTypeDefs =
+        types
+        |> Seq.map (fun kvp -> getProvidedType { Name = kvp.Key; Kind = kvp.Value; Parents = [] })
+        |> List.ofSeq
     // Add ground types
     let groundTypeDefs =
         Seq.zip Ast.groundValueTypes Ast.groundValueTypeNames
@@ -729,6 +717,9 @@ let generateCode(enableLogging : bool, nsName : string, sample : string) =
 namespace {nsName}
 
 open SturmovikMission.DataProvider
+open SturmovikMission.DataProvider.Ast
+open SturmovikMission.DataProvider.Mcu
+open MBrace.FsPickler
 
 /// The base type of all provided types representing objects found in a mission file, wraps an Ast.Value
 type AstValueWrapper(value : Ast.Value) =
@@ -746,9 +737,12 @@ type GroupMembers(items : SturmovikMission.DataProvider.Ast.Data list) =
         for (_, _, (topType, modul)) in topComplexTypes do
             match modul with
             | Some modul ->
-                yield! modul.Ast.Lines()
+                if modul.Content.Count > 0 then
+                    yield! modul.Ast.Lines()
             | None ->
                 ()
             yield! topType.Ast.Lines()
+
+        yield! parserType.Ast.Lines()
     }
-    |> String.concat "\n"
+    |> String.concat ""

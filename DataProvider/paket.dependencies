@@ -16,9 +16,10 @@ group CodeGen
 
 group Test
   source https://nuget.org/api/v2
-  frameworks: net461, net50
+  frameworks: net48, net50
 
   nuget NUnit
   nuget NUnit.Console
   nuget NUnit3TestAdapter version_in_path: true
   nuget FSharp.Core
+  nuget FsPickler
