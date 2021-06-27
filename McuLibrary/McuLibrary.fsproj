@@ -20,7 +20,11 @@
   <ItemGroup>
     <Compile Include="Cached.fs" />
     <Compile Include="Ast.fs" />
+    <Compile Include="Parsing.fs" />
+    <Compile Include="Unification.fs" />
+    <Compile Include="AutoSchema.fs" />
     <Compile Include="Mcu.fs" />
+    <Compile Include="McuFactory.fs" />
     <Compile Include="McuUtil.fs" />
     <Compile Include="McuOutput.fs" />
     <Compile Include="NumericalIdentifiers.fs" />

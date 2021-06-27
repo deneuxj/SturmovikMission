@@ -48,8 +48,8 @@ module internal AstExtensions =
         /// Serialize a ValueType and return an expression that deserializes that.
         member this.ToExpr() = getExprOfValueType this
 
-        /// Serialize a mapping from arbitrary keys to ValueType, and return an expression that deserializes that.
-        static member MapToExpr(mapping : Map<'K, ValueType>) : MyAst<Map<'K, ValueType>> =
+        /// Serialize a mapping from strings to ValueType, and return an expression that deserializes that.
+        static member MapToExpr(mapping : Map<string, ValueType>) : MyAst<Map<string, ValueType>> =
             use writer = new System.IO.StringWriter()
             serializer.Serialize(writer, mapping)
             let s = writer.ToString()
@@ -58,11 +58,11 @@ module internal AstExtensions =
                 Code = [
                     $"let reader = new System.IO.StringReader(\"\"\"{s}\"\"\")"
                     "let serializer = XmlSerializer()"
-                    $"serializer.Deserialize<Map<{typeof<'K>.Name}, ValueType>>(reader)"
+                    $"serializer.Deserialize<Map<string, ValueType>>(reader)"
                 ]
             |}
             |> MyAst.Leaf
-            |> MyAst.typed<Map<'K, ValueType>>
+            |> MyAst.typed<Map<string, ValueType>>
 
     type MyAst with
         /// Convert a raw expression of some generated type to a typed expression with a given target type.
@@ -105,40 +105,28 @@ module internal AstExtensions =
             |> MyAst.typed<'TargetType option>
 
         /// Apply a map function to items of type 'T and make a sequence of items of type 'fieldType'
-        static member MapItems(Kind fieldType, values : MyAst<'T seq>, map : MyAst<'T> -> MyAst) =
+        static member MapItems (map : MyAst<'T> -> MyAst) (values : MyAst<'T seq>) =
             MyAst.node 0 [
                 yield values.Untyped
                 yield "|> Seq.map (fun x ->" |> MyAst.line
-                yield MyAst.node 1 [
-                    yield "(" |> MyAst.line
-                    yield map(MyAst.line "x" |> MyAst.typed<'T>).Indent(1)
-                    yield $") :> {fieldType}" |> MyAst.line
-                ]
+                yield map(MyAst.line "x" |> MyAst.typed<'T>).Indent(1)
                 yield ")" |> MyAst.line
             ]
 
         /// Apply a map function on the values of a mapping of type 'K, and make a mapping from the same type of keys to values of type 'valueType'
-        static member MapMap(Kind valueType, values : MyAst<Map<_, 'T>>, map : MyAst<'T> -> MyAst) =
+        static member MapMap (map : MyAst<'T> -> MyAst) (values : MyAst<Map<_, 'T>>) =
             MyAst.node 0 [
                 yield values.Untyped
                 yield "|> Map.map (fun _ x ->" |> MyAst.line
-                yield MyAst.node 1 [
-                    yield "(" |> MyAst.line
-                    yield map(MyAst.line "x" |> MyAst.typed<'T>).Indent(1)
-                    yield $") :> {valueType}" |> MyAst.line
-                ]
+                yield map(MyAst.line "x" |> MyAst.typed<'T>).Indent(1)
                 yield ")" |> MyAst.line
             ]
 
         /// Map a 'T option to a 'fieldType' option
-        static member MapOption(Kind fieldType, value : MyAst<'T option>, map : MyAst<'T> -> MyAst) =
+        static member MapOption (map : MyAst<'T> -> MyAst) (value : MyAst<'T option>) =
             MyAst.node 0 [
                 yield value.Untyped
                 yield "|> Option.map (fun x ->" |> MyAst.line
-                yield MyAst.node 1 [
-                    yield "(" |> MyAst.line
-                    yield map(MyAst.line "x" |> MyAst.typed<'T>).Indent(1)
-                    yield $") :> {fieldType}" |> MyAst.line
-                ]
+                yield map(MyAst.line "x" |> MyAst.typed<'T>).Indent(1)
                 yield ")" |> MyAst.line
             ]

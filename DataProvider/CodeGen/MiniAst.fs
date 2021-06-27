@@ -22,6 +22,17 @@ open System
 type Kind =
     Kind of string
 with
+    member this.WithModule(modul : string) =
+        Kind $"{modul}.{this}"
+
+    member this.Option =
+        let (Kind s) = this
+        Kind $"{s} option"
+
+    member this.Seq =
+        let (Kind s) = this
+        Kind $"{s} seq"
+
     override this.ToString() =
         let (Kind s) = this
         s
@@ -71,6 +82,7 @@ module MyAst =
         let lines = x.Lines(0)
         if Seq.length lines = 1 then
             Seq.tryHead lines
+            |> Option.map (fun s -> s.TrimEnd())
         else
             None
 
@@ -158,11 +170,20 @@ type ClassDefinition =
         Args: (string * Kind) list
         Body: MyAst
         Members: ResizeArray<MemberDefinition>
+        ParentModuleName : string option
     }
     member this.AddMember(m) =
         this.Members.Add m
 
-    member this.AsKind = Kind(this.Name)
+    member this.AsKind() =
+        Kind(this.Name)
+
+    member this.AsModuleKind() =
+        match this.ParentModuleName with
+        | None ->
+            Kind(this.Name)
+        | Some parent ->
+            Kind(this.Name).WithModule(parent)
 
     member this.Ast =
         let args =
@@ -180,7 +201,7 @@ type ClassDefinition =
                 yield m.Ast.Indent(1)
         ]
 
-type ModuleDefinition =
+and ModuleDefinition =
     {
         Name: string
         Content: ResizeArray<Choice<ClassDefinition, ModuleDefinition>>
@@ -189,7 +210,7 @@ type ModuleDefinition =
     member this.AddClass(c) =
         this.Content.Add(Choice1Of2 c)
 
-    member this.AddModyle(m) =
+    member this.AddModule(m) =
         this.Content.Add(Choice2Of2 m)
 
     member this.Ast =

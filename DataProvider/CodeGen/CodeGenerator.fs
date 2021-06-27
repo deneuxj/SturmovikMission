@@ -31,7 +31,7 @@ module internal Internal =
     [<AutoOpen>]
     module AstValueWrapperTypeBuildingHelpers =
         /// Create a type inheriting from AstValueWrapper, with a constructor taking an Ast.Value
-        let newWrapper(name) =
+        let newWrapper(name, moduleName) =
             let ptyp : ClassDefinition =
                 {
                     Name = name
@@ -39,6 +39,7 @@ module internal Internal =
                     Args = ["value", Kind "Ast.Value"]
                     Body = MyAst.line "inherit AstValueWrapper(value)"
                     Members = ResizeArray()
+                    ParentModuleName = moduleName
                 }
             ptyp
 
@@ -86,8 +87,8 @@ module internal Internal =
                 ]
                 |> MyAst.node 0
             match args with
-            | [] -> ptyp.AddMember(newStaticProperty(name, ptyp.AsKind, body))
-            | _ :: _ -> ptyp.AddMember(newStaticMethod(name, ptyp.AsKind, args, body))
+            | [] -> ptyp.AddMember(newStaticProperty(name, ptyp.AsKind(), body))
+            | _ :: _ -> ptyp.AddMember(newStaticMethod(name, ptyp.AsKind(), args, body))
 
     /// Type of keys using in caching provided type definitions.
     type TypeIdentification = {
@@ -99,13 +100,24 @@ module internal Internal =
     let (|GroundType|ComplexType|) kind =
         if Ast.isGroundType kind then GroundType else ComplexType
 
-    /// Create a function that can build an Expr that constructs an instance of a generated type, given an Expr representing an Ast.Value
-    let wrap (fieldType : ClassDefinition) (e : MyAst<Ast.Value>) =
-        MyAst.node 0 [
-            yield $"{fieldType.Name}(" |> MyAst.line
-            yield e.Untyped.Indent(1)
-            yield ")" |> MyAst.line
-        ]
+    /// Get the path to a type in the same module as the current class, other than the class itself
+    let typePath(typeId : TypeIdentification, classDef : ClassDefinition) =
+        match typeId.Kind with
+        | GroundType ->
+            classDef.Name
+        | ComplexType ->
+            match typeId.Parents with
+            | parent :: _ -> $"{parent}.{classDef.Name}"
+            | _ -> classDef.Name
+
+    /// Create a function that wraps an Ast.Value AST in a constructor call
+    let wrap (typeId : TypeIdentification, classDef : ClassDefinition) (e : MyAst<Ast.Value>) =
+        let path = typePath(typeId, classDef)
+        MyAst.call (MyAst.line path) e.Untyped
+
+    /// Create a function that wraps an Ast.Value AST representing the value of the current instance in the constructor of the current class.
+    let build (classDef : ClassDefinition) (e : MyAst<Ast.Value>) =
+        MyAst.call (MyAst.line classDef.Name) e.Untyped
 
     /// Build the function that builds ProvidedTypeDefinitions for ValueTypes encountered in the sample mission file.
     let mkProvidedTypeBuilder logInfo =
@@ -122,7 +134,7 @@ module internal Internal =
         // Builders for the ground types
 
         let ptypBoolean =
-            let ptyp = newWrapper("Boolean")
+            let ptyp = newWrapper("Boolean", None)
             ptyp.AddMember(newProperty("Value", Kind "bool", MyAst.line "this.Wrapped.GetBool()"))
             addNamedConstructor("N", ptyp, [("value", Kind "bool")], MyAst.line "Ast.Value.Boolean(value)")
             addNamedConstructor("Default", ptyp, [], MyAst.line "Ast.Value.Boolean false")
@@ -130,7 +142,7 @@ module internal Internal =
             ptyp
 
         let ptypFloat =
-            let ptyp = newWrapper("Float")
+            let ptyp = newWrapper("Float", None)
             ptyp.AddMember(newProperty("Value", Kind "float", MyAst.line "this.Wrapped.GetFloat()"))
             addNamedConstructor("N", ptyp, [("value", Kind "float")], MyAst.line "Ast.Value.Float(value)")
             addNamedConstructor("Default", ptyp, [], MyAst.line "Ast.Value.Float 0.0")
@@ -138,7 +150,7 @@ module internal Internal =
             ptyp
 
         let ptypFloatPair =
-            let ptyp = newWrapper("FloatPair")
+            let ptyp = newWrapper("FloatPair", None)
             ptyp.AddMember(newProperty("Value", Kind "float * float", MyAst.line "this.Wrapped.GetFloatPair()"))
             addNamedConstructor("N", ptyp, [("value", Kind "float * float")], MyAst.line "Ast.Value.FloatPair(value)")
             addNamedConstructor("Default", ptyp, [], MyAst.line "Ast.Value.FloatPair(0.0, 0.0)")
@@ -146,7 +158,7 @@ module internal Internal =
             ptyp
 
         let ptypInteger =
-            let ptyp = newWrapper("Integer")
+            let ptyp = newWrapper("Integer", None)
             ptyp.AddMember(newProperty("Value", Kind "int", MyAst.line "this.Wrapped.GetInteger()"))
             addNamedConstructor("N", ptyp, [("value", Kind "int")], MyAst.line "Ast.Value.Integer value")
             addNamedConstructor("Default", ptyp, [], MyAst.line "Ast.Value.Integer 0")
@@ -154,7 +166,7 @@ module internal Internal =
             ptyp
 
         let ptypMask =
-            let ptyp = newWrapper("Mask")
+            let ptyp = newWrapper("Mask", None)
             ptyp.AddMember(newProperty("Value", Kind "int64", MyAst.line "this.Wrapped.GetMask()"))
             addNamedConstructor("N", ptyp, [("value", Kind "int64")], MyAst.line "Ast.Value.Mask value")
             addNamedConstructor("Default", ptyp, [], MyAst.line "Ast.Value.Mask 0L")
@@ -162,7 +174,7 @@ module internal Internal =
             ptyp
 
         let ptypString =
-            let ptyp = newWrapper("String")
+            let ptyp = newWrapper("String", None)
             ptyp.AddMember(newProperty("Value", Kind "string", MyAst.line "this.Wrapped.GetString()"))
             addNamedConstructor("N", ptyp, [("value", Kind "string")], MyAst.line "Ast.Value.String value")
             addNamedConstructor("Default", ptyp, [], MyAst.line "Ast.Value.String \"\"")
@@ -170,7 +182,7 @@ module internal Internal =
             ptyp
 
         let ptypIntVector =
-            let ptyp = newWrapper("VectorOfIntegers")
+            let ptyp = newWrapper("VectorOfIntegers", None)
             ptyp.AddMember(newProperty("Value", Kind "int list", MyAst.line "this.Wrapped.GetIntVector()"))
             addNamedConstructor("N", ptyp, [("value", Kind "int list")], MyAst.line "Ast.Value.IntVector value")
             addNamedConstructor("Default", ptyp, [], MyAst.line "Ast.Value.IntVector []")
@@ -178,7 +190,7 @@ module internal Internal =
             ptyp
 
         let ptypDate =
-            let ptyp = newWrapper("Date")
+            let ptyp = newWrapper("Date", None)
             let body =
                 MyAst.node 0 [
                     MyAst.line "let _, _, year = this.Wrapped.GetDate()"
@@ -205,12 +217,22 @@ module internal Internal =
             addAstValueTypeProperty(ptyp, Ast.ValueType.Date)
             ptyp
 
-        let addComplexNestedType(ptyp : ModuleDefinition, subpTyp : ClassDefinition, kind) =
+        let addComplexNestedType(ptyp : ModuleDefinition, (subpTyp, submodul) : ClassDefinition * ModuleDefinition option, kind) =
             match kind with
             | GroundType ->
                 ()
             | ComplexType ->
-                if ptyp.Content |> Seq.exists (function Choice2Of2 x -> x.Name =  subpTyp.Name | _ -> false) |> not then
+                match submodul with
+                | Some m ->
+                    if ptyp.Content |> Seq.exists (function Choice2Of2 x -> x.Name =  m.Name | _ -> false) |> not then
+                        match submodul with
+                        | Some m -> ptyp.AddModule(m)
+                        | None -> ()
+                    else
+                        failwithf "Cannot add module '%s' in '%s', there is already a module by that name." m.Name ptyp.Name
+                | None ->
+                    ()
+                if ptyp.Content |> Seq.exists (function Choice1Of2 x -> x.Name =  subpTyp.Name | _ -> false) |> not then
                     ptyp.AddClass(subpTyp)
                 else
                     failwithf "Cannot add provided type for '%s' in '%s', there is already a member by that name." subpTyp.Name ptyp.Name
@@ -233,15 +255,15 @@ module internal Internal =
                     | Ast.ValueType.Pair (typ1, typ2) -> buildPair(typId, typ1, typ2)
                     | Ast.ValueType.Triplet (typ1, typ2, typ3) -> buildTriple(typId, typ1, typ2, typ3)
                     | Ast.ValueType.Composite fields ->
-                        let ptyp = newWrapper(name)
+                        let ptyp = newWrapper(name, typId.Parents |> List.tryHead)
                         let modul = newModule(name)
                         let parents = name :: typId.Parents
                         // Add types of complex fields as nested types
                         for field in fields do
                             let fieldName = field.Key
                             let fieldKind, _, _ = field.Value
-                            let subpTyp, _ = getProvidedType { Name = fieldName; Kind = fieldKind; Parents = parents }
-                            addComplexNestedType(modul, subpTyp, fieldKind)
+                            let subpTyp, subModule = getProvidedType { Name = fieldName; Kind = fieldKind; Parents = parents }
+                            addComplexNestedType(modul, (subpTyp, subModule), fieldKind)
                         // Getters
                         ptyp.Members.AddRange(getters parents fields)
                         // Setters
@@ -257,10 +279,11 @@ module internal Internal =
                         ptyp, Some modul
                     | Ast.ValueType.Mapping itemTyp ->
                         let subName = sprintf "%s_ValueType" name
-                        let ptyp1, _ = getProvidedType { Name = subName; Kind = itemTyp; Parents = name :: typId.Parents }
-                        let ptyp = newWrapper(name)
+                        let ptyp1Id = { Name = subName; Kind = itemTyp; Parents = name :: typId.Parents }
+                        let ptyp1, module1 = getProvidedType ptyp1Id
+                        let ptyp = newWrapper(name, typId.Parents |> List.tryHead)
                         let modul = newModule(name)
-                        addComplexNestedType(modul, ptyp1, itemTyp)
+                        addComplexNestedType(modul, (ptyp1, module1), itemTyp)
                         // Constructor from map
                         addNamedConstructor("FromMap", ptyp, [("map", Kind $"Map<int, {ptyp1.Name}>")],
                             MyAst.node 0 [
@@ -275,46 +298,46 @@ module internal Internal =
                             let values =
                                 MyAst.line "Map.ofList(this.Wrapped.GetMapping())"
                                 |> MyAst.typed<Map<int, Ast.Value>>
-                            let wrap = wrap ptyp1
-                            MyAst.MapMap(ptyp1.AsKind, values, wrap)
+                            let wrap = wrap (ptyp1Id, ptyp1)
+                            MyAst.MapMap wrap values
                         ptyp.AddMember(newProperty("Value", propTyp, body))
                         // Set item in the map
                         let body =
                             "this.Wrapped.SetItem(key, value.Wrapped)"
                             |> MyAst.line
                             |> MyAst.typed<Ast.Value>
-                            |> wrap ptyp
-                        ptyp.AddMember(newMethod("SetItem", ptyp.AsKind, [("key", Kind "int"); ("value", ptyp1.AsKind)], body))
+                            |> build ptyp
+                        ptyp.AddMember(newMethod("SetItem", ptyp.AsKind(), [("key", Kind "int"); ("value", ptyp1.AsModuleKind())], body))
                         // Remove item from the map
                         let body =
                             "this.Wrapped.RemoveItem(key)"
                             |> MyAst.line
                             |> MyAst.typed<Ast.Value>
-                            |> wrap ptyp
-                        ptyp.AddMember(newMethod("RemoveItem", ptyp.AsKind, ["Key", Kind "int"], body))
+                            |> build ptyp
+                        ptyp.AddMember(newMethod("RemoveItem", ptyp.AsKind(), ["key", Kind "int"], body))
                         // Clear map
                         let body =
                             "Ast.Value.Mapping []"
                             |> MyAst.line
                             |> MyAst.typed<Ast.Value>
-                            |> wrap ptyp
-                        ptyp.AddMember(newMethod("Clear", ptyp.AsKind, [], body))
+                            |> build ptyp
+                        ptyp.AddMember(newMethod("Clear", ptyp.AsKind(), [], body))
                         // Result
                         ptyp, Some modul
                     | Ast.ValueType.List itemTyp ->
                         let subName = sprintf "%s_ValueType" name
-                        let ptyp1, _ = getProvidedType { Name = subName; Kind = itemTyp; Parents = name :: typId.Parents }
-                        let ptyp = newWrapper(name)
+                        let ptyp1Id = { Name = subName; Kind = itemTyp; Parents = name :: typId.Parents }
+                        let ptyp1, module1 = getProvidedType ptyp1Id
+                        let ptyp = newWrapper(name, typId.Parents |> List.tryHead)
                         let modul = newModule(name)
-                        addComplexNestedType(modul, ptyp1, itemTyp)
+                        addComplexNestedType(modul, (ptyp1, module1), itemTyp)
                         // Value getter
-                        let propTyp = Kind $"{ptyp1.Name} seq"
+                        let propTyp = ptyp1.AsModuleKind().Seq
                         let body =
-                            let values =
-                                "this.Wrapper.GetList()"
-                                |> MyAst.line
-                                |> MyAst.typed<Ast.Value seq>
-                            MyAst.MapItems(ptyp1.AsKind, values, wrap ptyp1)
+                            "this.Wrapped.GetList()"
+                            |> MyAst.line
+                            |> MyAst.typed<Ast.Value seq>
+                            |> MyAst.MapItems (wrap (ptyp1Id, ptyp1))
                         ptyp.AddMember(newProperty("Value", propTyp, body))
                         // constructor with value
                         let body =
@@ -341,16 +364,16 @@ module internal Internal =
                 logInfo <| sprintf "Done building provided type for %s" typId.Name
 
         and buildPair (typId : TypeIdentification, typ1 : Ast.ValueType, typ2 : Ast.ValueType) =
-            let ptyp1, _ =
+            let ptyp1, m1 =
                 let subName = sprintf "%s_ValueType1" typId.Name
                 getProvidedType { Name = subName; Kind = typ1; Parents = typId.Name :: typId.Parents }
-            let ptyp2, _ =
+            let ptyp2, m2 =
                 let subName = sprintf "%s_ValueType2" typId.Name
                 getProvidedType { Name = subName; Kind = typ2; Parents = typId.Name :: typId.Parents }
-            let ptyp = newWrapper(typId.Name)
+            let ptyp = newWrapper(typId.Name, typId.Parents |> List.tryHead)
             let modul = newModule(typId.Name)
-            addComplexNestedType(modul, ptyp1, typ1)
-            addComplexNestedType(modul, ptyp2, typ2)
+            addComplexNestedType(modul, (ptyp1, m1), typ1)
+            addComplexNestedType(modul, (ptyp2, m2), typ2)
             // Value getter
             let propTyp = Kind $"({ptyp1.Name} * {ptyp2.Name})"
             let body =
@@ -363,26 +386,26 @@ module internal Internal =
             let body =
                 "Ast.Value.Pair(x.Wrapped, y.Wrapped)"
                 |> MyAst.line
-            addNamedConstructor("Create", ptyp, [("x", ptyp1.AsKind); ("y", ptyp2.AsKind)], body)
+            addNamedConstructor("Create", ptyp, [("x", ptyp1.AsModuleKind()); ("y", ptyp2.AsModuleKind())], body)
             // Result
             ptyp, Some modul
 
         and buildTriple (typId : TypeIdentification, typ1 : Ast.ValueType, typ2 : Ast.ValueType, typ3 : Ast.ValueType) =
             let name = typId.Name
-            let ptyp1, _ =
+            let ptyp1, m1 =
                 let subName = sprintf "%s_ValueType1" name
                 getProvidedType { Name = subName; Kind = typ1; Parents = name :: typId.Parents }
-            let ptyp2, _ =
+            let ptyp2, m2 =
                 let subName = sprintf "%s_ValueType2" name
                 getProvidedType { Name = subName; Kind = typ2; Parents = name :: typId.Parents }
-            let ptyp3, _ =
+            let ptyp3, m3 =
                 let subName = sprintf "%s_ValueType3" name
                 getProvidedType { Name = subName; Kind = typ3; Parents = name :: typId.Parents }
-            let ptyp = newWrapper(name)
+            let ptyp = newWrapper(name, typId.Parents |> List.tryHead)
             let modul = newModule(name)
-            addComplexNestedType(modul, ptyp1, typ1)
-            addComplexNestedType(modul, ptyp2, typ2)
-            addComplexNestedType(modul, ptyp3, typ3)
+            addComplexNestedType(modul, (ptyp1, m1), typ1)
+            addComplexNestedType(modul, (ptyp2, m2), typ2)
+            addComplexNestedType(modul, (ptyp3, m3), typ3)
             let propTyp = Kind $"({ptyp1.Name} * {ptyp2.Name} * {ptyp3.Name})"
             // Value getter
             let body =
@@ -393,9 +416,9 @@ module internal Internal =
             ptyp.AddMember(newProperty("Value", propTyp, body))
             // Constructor
             let body =
-                "Ast.Value.Triplet(x, y, z)"
+                "Ast.Value.Triplet(x.Wrapped, y.Wrapped, z.Wrapped)"
                 |> MyAst.line
-            addNamedConstructor("Create", ptyp, [("x", ptyp1.AsKind); ("y", ptyp2.AsKind); ("z", ptyp3.AsKind)], body)
+            addNamedConstructor("Create", ptyp, [("x", ptyp1.AsModuleKind()); ("y", ptyp2.AsModuleKind()); ("z", ptyp3.AsModuleKind())], body)
             // Result
             ptyp, Some modul
 
@@ -404,10 +427,11 @@ module internal Internal =
             fields
             |> Map.map (
                 fun fieldName (def, minMult, maxMult) ->
-                    let fieldType, _ =
-                        getProvidedType { Name = fieldName; Kind = def; Parents = parents }
+                    let fieldTypeId = { Name = fieldName; Kind = def; Parents = parents }
+                    let fieldType, fieldModule =
+                        getProvidedType fieldTypeId
 
-                    let wrap = wrap fieldType
+                    let wrap = wrap (fieldTypeId, fieldType)
 
                     match (minMult, maxMult) with
                     | Ast.MinMultiplicity.MinOne, Ast.MaxMultiplicity.MaxOne ->
@@ -422,20 +446,21 @@ module internal Internal =
                             ]
                             |> MyAst.typed<Ast.Value>
                             |> wrap
-                        newMethod(sprintf "Get%s" fieldName, fieldType.AsKind, [], body)
+                        newMethod(sprintf "Get%s" fieldName, fieldType.AsModuleKind(), [], body)
                     | Ast.MinMultiplicity.Zero, Ast.MaxOne ->
-                        let optTyp = Kind $"{fieldType.Name} option"
+                        let optTyp = fieldType.AsModuleKind().Option
                         let body =
                             let e = asList "this"
                             MyAst.node 0 [
                                 "let e =" |> MyAst.line
                                 e.Indent(1)
                                 $"List.tryPick (fun (name, x) -> if name = \"{fieldName}\" then Some x else None) e" |> MyAst.line
-                                $"|> Option.map (fun x -> {fieldType.Name}(x))" |> MyAst.line
                             ]
+                            |> MyAst.typed<Ast.Value option>
+                            |> MyAst.MapOption wrap
                         newMethod(sprintf "TryGet%s" fieldName, optTyp, [], body)
                     | _, Ast.MaxMultiplicity.Multiple ->
-                        let listTyp = Kind $"{fieldType.Name} list"
+                        let seqTyp = fieldType.AsModuleKind().Seq
                         let body =
                             let fields = asList "this"
                             MyAst.node 0 [
@@ -443,9 +468,10 @@ module internal Internal =
                                 fields.Indent(1)
                                 "fields" |> MyAst.line
                                 $"|> List.choose (fun (name, x) -> if name = \"{fieldName}\" then Some x else None)" |> MyAst.line
-                                $"|> List.seq (fun x -> {fieldType.Name}(x))" |> MyAst.line
                             ]
-                        newMethod(sprintf "Get%ss" fieldName, listTyp, [], body)
+                            |> MyAst.typed<Ast.Value seq>
+                            |> MyAst.MapItems wrap
+                        newMethod(sprintf "Get%ss" fieldName, seqTyp, [], body)
                 )
             |> Map.toList
             |> List.sortBy fst
@@ -457,31 +483,31 @@ module internal Internal =
             |> Seq.map(fun kvp ->
                 let fieldName = kvp.Key
                 let (def, minMult, maxMult) = kvp.Value
-                let fieldType, _ =
+                let fieldType, fieldModule =
                     getProvidedType { Name = fieldName; Kind = def; Parents = parents }
                 match (minMult, maxMult) with
                 | Ast.MinMultiplicity.MinOne, Ast.MaxMultiplicity.MaxOne ->
                     let body =
                         $"{ptyp.Name}(this.Wrapped.SetItem(\"{fieldName}\", value.Wrapped))" |> MyAst.line
 
-                    newMethod(sprintf "Set%s" fieldName, ptyp.AsKind, [("value", fieldType.AsKind)], body)
+                    newMethod(sprintf "Set%s" fieldName, ptyp.AsKind(), [("value", fieldType.AsModuleKind())], body)
                 | Ast.MinMultiplicity.Zero, Ast.MaxOne ->
-                    let optTyp = Kind $"{fieldType.Name} option"
+                    let optTyp = fieldType.AsModuleKind().Option
                     let body =
                         MyAst.node 0 [
                             "let arg = value |> Option.map (fun x -> x.Wrapped)" |> MyAst.line
                             $"{ptyp.Name}(this.Wrapped.SetItem(\"{fieldName}\", arg))" |> MyAst.line
                         ]
-                    newMethod(sprintf "Set%s" fieldName, ptyp.AsKind, [("value", optTyp)], body)
+                    newMethod(sprintf "Set%s" fieldName, ptyp.AsKind(), [("value", optTyp)], body)
                 | _, Ast.MaxMultiplicity.Multiple ->
-                    let listTyp = Kind $"{fieldType.Name} list"
+                    let seqTyp = fieldType.AsModuleKind().Seq
                     let body =
                         MyAst.node 0 [
-                            $"let xs = value |> List.map (fun x -> x.Wrapped)" |> MyAst.line
-                            $"let res = this.Wrapped.ClearItems(\"{fieldName}\").AddItems(\"{fieldName}\", xs)" |> MyAst.line
+                            $"let xs = value |> Seq.map (fun x -> x.Wrapped)" |> MyAst.line
+                            $"let res = this.Wrapped.ClearItems(\"{fieldName}\").AddItems(\"{fieldName}\", List.ofSeq xs)" |> MyAst.line
                             $"{ptyp.Name}(res)" |> MyAst.line
                         ]
-                    newMethod(sprintf "Set%s" fieldName, ptyp.AsKind, [("value", listTyp)], body)
+                    newMethod(sprintf "Set%s" fieldName, ptyp.AsKind(), [("value", seqTyp)], body)
                 )
             |> List.ofSeq
 
@@ -517,15 +543,15 @@ module internal Internal =
                     MyAst.line "fun (s : Parsing.Stream) ->"
                     MyAst.node 1 [
                         MyAst.line "let (Parsing.SubString(data, offset)) = s"
-                        MyAst.line $"if data.Substring(offset).StartsWith({name}) then"
+                        MyAst.line $"if data.Substring(offset).StartsWith(\"{name}\") then"
                         MyAst.node 1 [
-                            MyAst.line $"let s = Parsing.SubString(data, offset + {name}.Length)"
+                            MyAst.line $"let s = Parsing.SubString(data, offset + {name.Length})"
                             MyAst.line "bodyParser.Run s"
                         ]
                         MyAst.line "else"
                         (MyAst.line $"Parsing.parseError(\"Expected '{name}'\", s)").Indent(1)
-                        MyAst.line "|> Parsing.ParserFun"
                     ]
+                    MyAst.line "|> Parsing.ParserFun"
                 ]
 
             newStaticMethod("GetParser", retType, [], body)
@@ -595,6 +621,7 @@ module internal Internal =
                 Args = [("nodes", dataListType)]
                 Body = body
                 Members = ResizeArray()
+                ParentModuleName = None
             }
         let valueTypeOfName =
             namedValueTypes
@@ -616,7 +643,7 @@ module internal Internal =
                             MyAst.line "Parsing.parseFile getParser s"
                         ]
                     MyAst.call (MyAst.line "GroupData") nodes
-                newStaticMethod("Parse", parser.AsKind, [("s", Kind "Parsing.Stream")], body)
+                newStaticMethod("Parse", parser.AsKind(), [("s", Kind "Parsing.Stream")], body)
             { constructor with
                 Doc = [
                     """<summary>Parse a mission or group file and store the extracted data.</summary>"""
@@ -634,7 +661,7 @@ module internal Internal =
                             MyAst.line "|> List.collect (fun node -> node.FindByPath [name])"
                         ]
                     MyAst.call (MyAst.line "GroupData") nodes
-                newMethod("GetGroup", parser.AsKind, [("name", Kind "string")], body)
+                newMethod("GetGroup", parser.AsKind(), [("name", Kind "string")], body)
             { constructor with
                 Doc = [
                     """<summary>Get data from a subgroup</summary>"""
@@ -718,7 +745,6 @@ namespace {nsName}
 
 open SturmovikMission.DataProvider
 open SturmovikMission.DataProvider.Ast
-open SturmovikMission.DataProvider.Mcu
 open MBrace.FsPickler
 
 /// The base type of all provided types representing objects found in a mission file, wraps an Ast.Value

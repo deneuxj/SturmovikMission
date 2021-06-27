@@ -11,10 +11,6 @@
     <Compile Include="UniqueNames.fs" />
     <Compile Include="FileWithTime.fs" />
     <Compile Include="Logging.fs" />
-    <Compile Include="Unification.fs" />
-    <Compile Include="Parsing.fs" />
-    <Compile Include="AutoSchema.fs" />
-    <Compile Include="McuFactory.fs" />
     <Compile Include="CodeGenerator.fs" />
     <Compile Include="Program.fs" />
     <None Include="paket.references" />

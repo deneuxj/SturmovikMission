@@ -22,7 +22,6 @@ open System
 open System.Text.RegularExpressions
 
 open SturmovikMission.DataProvider.Ast
-open Microsoft.FSharp.Quotations
 
 let regex pat =
     Regex(pat, RegexOptions.Compiled)
