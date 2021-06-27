@@ -26,8 +26,6 @@ open SturmovikMission.DataProvider
 open SturmovikMission.MiniAst
 
 module internal Internal =
-    open SturmovikMission.Expr.AstExtensions
-
     [<AutoOpen>]
     module AstValueWrapperTypeBuildingHelpers =
         /// Create a type inheriting from AstValueWrapper, with a constructor taking an Ast.Value

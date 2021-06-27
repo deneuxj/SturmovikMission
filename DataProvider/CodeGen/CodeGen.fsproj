@@ -7,7 +7,6 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="MiniAst.fs" />
-    <Compile Include="Expr.fs" />
     <Compile Include="CodeGenerator.fs" />
     <Compile Include="Program.fs" />
     <None Include="paket.references" />

@@ -1,4 +1,4 @@
-﻿//    Copyright 2020 Johann Deneux
+﻿//    Copyright 2020, 2021 Johann Deneux
 //
 //    This file is part of SturmovikMission.
 //
@@ -17,7 +17,9 @@
 
 namespace SturmovikMission.MiniAst
 
-open System
+open SturmovikMission
+open MBrace.FsPickler
+open System.Collections.Generic
 
 type Kind =
     Kind of string
@@ -54,7 +56,7 @@ type MyAst =
             match this with
             | Leaf x ->
                 for line in x.Code do
-                    yield sprintf "%s%s\n" (String(' ', 4 * (baseIndent + x.Indent))) line
+                    yield sprintf "%s%s\n" (System.String(' ', 4 * (baseIndent + x.Indent))) line
             | Node x ->
                 for child in x.Children do
                     yield! child.Lines(baseIndent + x.Indent)
@@ -130,6 +132,110 @@ module MyAst =
 
     let untyped (e : MyAst<_>) = e.Untyped
 
+    /// Convert a raw expression of some generated type to a typed expression with a given target type.
+    /// This is useful to insert values with generated types into quotation holes using their base type.
+    /// The type of the expression must be assignable to 'TargetType
+    let Convert<'TargetType>(e : MyAst) =
+        node 0 [
+            yield line "("
+            yield e.Indent(1)
+            yield line $") :> {typeof<'TargetType>.Name}"
+        ]
+        |> typed<'TargetType>
+
+    /// Convert a raw expression representing an IEnumerable<some generated type> to an IEnumerable<'TargetType>
+    /// This is useful to insert values which are sequences of some generated type into quotation holes using a sequence of their base type.
+    /// The type of items in the sequence in the expression must be assignable to 'TargetType
+    let ConvertEnumerable<'TargetType>(e : MyAst) =
+        node 0 [
+            yield e
+            yield $"|> Seq.map (fun x -> upcast<{typeof<'TargetType>.Name}> x)" |> line
+        ]
+        |> typed<'TargetType seq>
+
+    /// Convert a raw expression representing a Map<Key, some generated type SourceType> to a Map<Key, TargetType>
+    /// This is useful to insert values which are sequences of some generated type into quotation holes using a sequence of their base type.
+    /// The type of values in the map in the expression must be assignable to 'TargetType
+    let ConvertMap<'K, 'TargetType when 'K: comparison>(e : MyAst) =
+        node 0 [
+            yield e
+            yield $"|> Map.map (fun k v -> upcast<{typeof<'TargetType>.Name}> v)" |> line
+        ]
+        |> typed<Map<'K, 'TargetType>>
+
+    /// Convert a raw expression representing an option of a generated type to a 'TargetType option
+    let ConvertOpt<'TargetType>(e : MyAst) =
+        node 0 [
+            yield e
+            yield $"|> Option.map (fun x -> upcast<{typeof<'TargetType>.Name}> v)" |> line
+        ]
+        |> typed<'TargetType option>
+
+    /// Apply a map function to items of type 'T and make a sequence of items of type 'fieldType'
+    let MapItems (map : MyAst<'T> -> MyAst) (values : MyAst<'T seq>) =
+        node 0 [
+            yield values.Untyped
+            yield "|> Seq.map (fun x ->" |> line
+            yield map(line "x" |> typed<'T>).Indent(1)
+            yield ")" |> line
+        ]
+
+    /// Apply a map function on the values of a mapping of type 'K, and make a mapping from the same type of keys to values of type 'valueType'
+    let MapMap (map : MyAst<'T> -> MyAst) (values : MyAst<Map<_, 'T>>) =
+        node 0 [
+            yield values.Untyped
+            yield "|> Map.map (fun _ x ->" |> line
+            yield map(line "x" |> typed<'T>).Indent(1)
+            yield ")" |> line
+        ]
+
+    /// Map a 'T option to a 'fieldType' option
+    let MapOption (map : MyAst<'T> -> MyAst) (value : MyAst<'T option>) =
+        node 0 [
+            yield value.Untyped
+            yield "|> Option.map (fun x ->" |> line
+            yield map(line "x" |> typed<'T>).Indent(1)
+            yield ")" |> line
+        ]
+
+[<AutoOpen>]
+module ValueTypeExtensions =
+    open SturmovikMission.DataProvider
+    let private valueTypeToExprCache = new Dictionary<Ast.ValueType, MyAst<Ast.ValueType>>(HashIdentity.Structural)
+    let serializer = XmlSerializer()
+
+    /// Serialize a ValueType and return an expression that deserializes that.
+    let buildExprFromValueType (typ : SturmovikMission.DataProvider.Ast.ValueType) =
+        use writer = new System.IO.StringWriter()
+        serializer.Serialize(writer, typ)
+        let s = writer.ToString()
+        [
+            $"let reader = new System.IO.StringReader(\"\"\"{s}\"\"\")"
+            "let serializer = XmlSerializer()"
+            "serializer.Deserialize<ValueType>(reader)"
+        ]
+        |> MyAst.leaf
+        |> MyAst.typed<Ast.ValueType>
+
+    let getExprOfValueType expr =
+        Cached.cached valueTypeToExprCache buildExprFromValueType expr
+
+    type SturmovikMission.DataProvider.Ast.ValueType with
+        /// Serialize a ValueType and return an expression that deserializes that.
+        member this.ToExpr() = getExprOfValueType this
+
+        /// Serialize a mapping from strings to ValueType, and return an expression that deserializes that.
+        static member MapToExpr(mapping : Map<string, Ast.ValueType>) : MyAst<Map<string, Ast.ValueType>> =
+            use writer = new System.IO.StringWriter()
+            serializer.Serialize(writer, mapping)
+            let s = writer.ToString()
+            [
+                $"let reader = new System.IO.StringReader(\"\"\"{s}\"\"\")"
+                "let serializer = XmlSerializer()"
+                $"serializer.Deserialize<Map<string, ValueType>>(reader)"
+            ]
+            |> MyAst.leaf
+            |> MyAst.typed<Map<string, Ast.ValueType>>
 
 type MemberDefinition =
     {
