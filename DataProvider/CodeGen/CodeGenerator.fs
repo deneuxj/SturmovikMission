@@ -265,7 +265,7 @@ module internal Internal =
                     // Parse
                     ptyp.AddMember(staticParser (typId.Kind, name, ptyp))
                     // Dump to text
-                    let meth = newMethod("AsString", Kind "string", [], MyAst.line $"\"{name}\" + (Ast.dump this.Wrapped)")
+                    let meth = newMethod("AsString", Kind "string", [], MyAst.line $"\"{name} \" + (Ast.dump this.Wrapped)")
                     ptyp.AddMember(meth)
                     // Result
                     ptyp, Some modul
@@ -506,17 +506,14 @@ module internal Internal =
             [
                 match McuFactory.tryMakeMcu(name, typ) with
                 | Some f ->
-                    use writer = new System.IO.StringWriter()
-                    serializer.Serialize(writer, fun vt -> f(vt, []))
-                    let s = writer.ToString()
+                    let typAst = typ.ToExpr()
                     let body =
-                        [
-                            $"let reader = new System.IO.StringReader(\"\"\"{s}\"\"\")"
-                            "let serializer = XmlSerializer()"
-                            "let f = serializer.Deserialize<Ast.Value -> Mcu.McuBase>(reader)"
-                            "f(this.Wrapped)"
+                        MyAst.node 0 [
+                            MyAst.line "let typ ="
+                            typAst.Untyped.Indent(1)
+                            MyAst.line $"let f = McuFactory.tryMakeMcu(\"{name}\", typ).Value"
+                            MyAst.line"f(this.Wrapped, [])"
                         ]
-                        |> MyAst.leaf
                     yield newMethod("CreateMcu", Kind "Mcu.McuBase", [], body)
                 | None -> ()
             ]
