@@ -293,7 +293,7 @@ module internal Internal =
                             MyAst.line "Map.ofList(this.Wrapped.GetMapping())"
                             |> MyAst.typed<Map<int, Ast.Value>>
                         let wrap = wrap (ptyp1Id, ptyp1)
-                        MyAst.MapMap wrap values
+                        MyAst.mapValues wrap values
                     ptyp.AddMember(newProperty("Value", propTyp, body))
                     // Set item in the map
                     let body =
@@ -331,7 +331,7 @@ module internal Internal =
                         "this.Wrapped.GetList()"
                         |> MyAst.line
                         |> MyAst.typed<Ast.Value seq>
-                        |> MyAst.MapItems (wrap (ptyp1Id, ptyp1))
+                        |> MyAst.mapSeq (wrap (ptyp1Id, ptyp1))
                     ptyp.AddMember(newProperty("Value", propTyp, body))
                     // constructor with value
                     let body =
@@ -449,7 +449,7 @@ module internal Internal =
                                 $"List.tryPick (fun (name, x) -> if name = \"{fieldName}\" then Some x else None) e" |> MyAst.line
                             ]
                             |> MyAst.typed<Ast.Value option>
-                            |> MyAst.MapOption wrap
+                            |> MyAst.mapOption wrap
                         newMethod(sprintf "TryGet%s" fieldName, optTyp, [], body)
                     | _, Ast.MaxMultiplicity.Multiple ->
                         let seqTyp = fieldType.AsModuleKind().Seq
@@ -462,7 +462,7 @@ module internal Internal =
                                 $"|> List.choose (fun (name, x) -> if name = \"{fieldName}\" then Some x else None)" |> MyAst.line
                             ]
                             |> MyAst.typed<Ast.Value seq>
-                            |> MyAst.MapItems wrap
+                            |> MyAst.mapSeq wrap
                         newMethod(sprintf "Get%ss" fieldName, seqTyp, [], body)
                 )
             |> Map.toList

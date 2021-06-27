@@ -132,47 +132,8 @@ module MyAst =
 
     let untyped (e : MyAst<_>) = e.Untyped
 
-    /// Convert a raw expression of some generated type to a typed expression with a given target type.
-    /// This is useful to insert values with generated types into quotation holes using their base type.
-    /// The type of the expression must be assignable to 'TargetType
-    let Convert<'TargetType>(e : MyAst) =
-        node 0 [
-            yield line "("
-            yield e.Indent(1)
-            yield line $") :> {typeof<'TargetType>.Name}"
-        ]
-        |> typed<'TargetType>
-
-    /// Convert a raw expression representing an IEnumerable<some generated type> to an IEnumerable<'TargetType>
-    /// This is useful to insert values which are sequences of some generated type into quotation holes using a sequence of their base type.
-    /// The type of items in the sequence in the expression must be assignable to 'TargetType
-    let ConvertEnumerable<'TargetType>(e : MyAst) =
-        node 0 [
-            yield e
-            yield $"|> Seq.map (fun x -> upcast<{typeof<'TargetType>.Name}> x)" |> line
-        ]
-        |> typed<'TargetType seq>
-
-    /// Convert a raw expression representing a Map<Key, some generated type SourceType> to a Map<Key, TargetType>
-    /// This is useful to insert values which are sequences of some generated type into quotation holes using a sequence of their base type.
-    /// The type of values in the map in the expression must be assignable to 'TargetType
-    let ConvertMap<'K, 'TargetType when 'K: comparison>(e : MyAst) =
-        node 0 [
-            yield e
-            yield $"|> Map.map (fun k v -> upcast<{typeof<'TargetType>.Name}> v)" |> line
-        ]
-        |> typed<Map<'K, 'TargetType>>
-
-    /// Convert a raw expression representing an option of a generated type to a 'TargetType option
-    let ConvertOpt<'TargetType>(e : MyAst) =
-        node 0 [
-            yield e
-            yield $"|> Option.map (fun x -> upcast<{typeof<'TargetType>.Name}> v)" |> line
-        ]
-        |> typed<'TargetType option>
-
     /// Apply a map function to items of type 'T and make a sequence of items of type 'fieldType'
-    let MapItems (map : MyAst<'T> -> MyAst) (values : MyAst<'T seq>) =
+    let mapSeq (map : MyAst<'T> -> MyAst) (values : MyAst<'T seq>) =
         node 0 [
             yield values.Untyped
             yield "|> Seq.map (fun x ->" |> line
@@ -181,7 +142,7 @@ module MyAst =
         ]
 
     /// Apply a map function on the values of a mapping of type 'K, and make a mapping from the same type of keys to values of type 'valueType'
-    let MapMap (map : MyAst<'T> -> MyAst) (values : MyAst<Map<_, 'T>>) =
+    let mapValues (map : MyAst<'T> -> MyAst) (values : MyAst<Map<_, 'T>>) =
         node 0 [
             yield values.Untyped
             yield "|> Map.map (fun _ x ->" |> line
@@ -190,7 +151,7 @@ module MyAst =
         ]
 
     /// Map a 'T option to a 'fieldType' option
-    let MapOption (map : MyAst<'T> -> MyAst) (value : MyAst<'T option>) =
+    let mapOption (map : MyAst<'T> -> MyAst) (value : MyAst<'T option>) =
         node 0 [
             yield value.Untyped
             yield "|> Option.map (fun x ->" |> line
