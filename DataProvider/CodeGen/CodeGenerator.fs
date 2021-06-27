@@ -19,8 +19,6 @@
 module SturmovikMission.DataProvider.CodeGenerator
 
 open System.Collections.Generic
-open System
-open System.IO
 open SturmovikMission.Cached
 open SturmovikMission.DataProvider
 open SturmovikMission.MiniAst

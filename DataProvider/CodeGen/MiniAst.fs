@@ -15,12 +15,14 @@
 //    You should have received a copy of the GNU Lesser General Public License
 //    along with SturmovikMission.  If not, see <http://www.gnu.org/licenses/>.
 
+/// Minimal AST and helpers to produce indented F# code.
 namespace SturmovikMission.MiniAst
 
 open SturmovikMission
 open MBrace.FsPickler
 open System.Collections.Generic
 
+/// A type
 type Kind =
     Kind of string
 with
@@ -39,6 +41,7 @@ with
         let (Kind s) = this
         s
 
+/// Verbatim blocks of code with indentation.
 type MyAst =
     | Leaf of {| Code: string list; Indent: int |}
     | Node of {| Children: MyAst list; Indent: int |}
@@ -64,17 +67,22 @@ type MyAst =
                 yield "\n"
         }
 
+/// Typed version of MyAst.
 type MyAst<'T> = { Untyped : MyAst }
 
 [<RequireQualifiedAccess>]
 module MyAst =
 
+    /// A single line of code
     let line s = Leaf {| Code = [s]; Indent = 0 |}
 
+    /// A number of lines of code with the same indentation
     let leaf xs = Leaf {| Code = xs; Indent = 0 |}
 
+    /// Combine MyAst nodes into a node
     let node indent xs = Node {| Children = xs; Indent = indent |}
 
+    /// Check if a MyAst can be rendered as a single line
     let asSingleLine (x : MyAst) =
         match x with
         | Leaf x when x.Indent > 0 -> None
@@ -88,6 +96,7 @@ module MyAst =
         else
             None
 
+    /// Combine two MyAst with an infix operator
     let infix op left right =
         match asSingleLine left, asSingleLine right with
         | Some left, Some right ->
@@ -114,6 +123,7 @@ module MyAst =
                 line ")"
             ]
 
+    /// Wrap a MyAst in parentheses
     let paren e =
         match asSingleLine e with
         | Some s ->
@@ -125,14 +135,17 @@ module MyAst =
                 line ")"
             ]
 
+    /// Create the MyAst representing a function call
     let call left right =
         infix " " left (paren right)
 
+    /// Mark a MyAst with a type
     let typed<'T> e : MyAst<'T> = { Untyped = e }
 
+    /// Extract the MyAst from a typed MyAst
     let untyped (e : MyAst<_>) = e.Untyped
 
-    /// Apply a map function to items of type 'T and make a sequence of items of type 'fieldType'
+    /// Build the MyAst representing the application of a map function to items of type 'T in a sequence.
     let mapSeq (map : MyAst<'T> -> MyAst) (values : MyAst<'T seq>) =
         node 0 [
             yield values.Untyped
@@ -141,7 +154,7 @@ module MyAst =
             yield ")" |> line
         ]
 
-    /// Apply a map function on the values of a mapping of type 'K, and make a mapping from the same type of keys to values of type 'valueType'
+    /// Build the MyAst representing the application of a map function to the values of a mapping.
     let mapValues (map : MyAst<'T> -> MyAst) (values : MyAst<Map<_, 'T>>) =
         node 0 [
             yield values.Untyped
@@ -150,7 +163,7 @@ module MyAst =
             yield ")" |> line
         ]
 
-    /// Map a 'T option to a 'fieldType' option
+    /// Build the MyAst representing the application of a map to an option.
     let mapOption (map : MyAst<'T> -> MyAst) (value : MyAst<'T option>) =
         node 0 [
             yield value.Untyped
@@ -198,6 +211,7 @@ module ValueTypeExtensions =
             |> MyAst.leaf
             |> MyAst.typed<Map<string, Ast.ValueType>>
 
+/// The definition of a method or property
 type MemberDefinition =
     {
         Name: string
@@ -230,6 +244,7 @@ type MemberDefinition =
             yield this.Body.Indent(1)
         ]
 
+/// The definition of a class
 type ClassDefinition =
     {
         Name: string
@@ -268,6 +283,7 @@ type ClassDefinition =
                 yield m.Ast.Indent(1)
         ]
 
+/// The definition of a module
 and ModuleDefinition =
     {
         Name: string
