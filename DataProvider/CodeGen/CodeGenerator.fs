@@ -120,9 +120,7 @@ module internal Internal =
         MyAst.call (MyAst.line classDef.Name) e.Untyped
 
     /// Build the function that builds ProvidedTypeDefinitions for ValueTypes encountered in the sample mission file.
-    let mkProvidedTypeBuilder logInfo =
-        logInfo "Started inferring all MCU value types"
-
+    let mkProvidedTypeBuilder() =
         let cache = new Dictionary<TypeIdentification, ClassDefinition * ModuleDefinition option>(HashIdentity.Structural)
 
         let asList this = MyAst.line $"({this}.Wrapped : Ast.Value).GetItems()"
@@ -239,129 +237,125 @@ module internal Internal =
 
         // Build any kind of type, ground or complex.
         let rec buildProvidedType (typId : TypeIdentification) =
-            logInfo <| sprintf "Started building provided type for %s" typId.Name
-            try
-                let name = typId.Name
-                let ptyp, modul =
-                    match typId.Kind with
-                    | Ast.ValueType.Boolean -> ptypBoolean, None
-                    | Ast.ValueType.Float -> ptypFloat, None
-                    | Ast.ValueType.FloatPair -> ptypFloatPair, None
-                    | Ast.ValueType.Integer -> ptypInteger, None
-                    | Ast.ValueType.Mask -> ptypMask, None
-                    | Ast.ValueType.String -> ptypString, None
-                    | Ast.ValueType.IntVector -> ptypIntVector, None
-                    | Ast.ValueType.Date -> ptypDate, None
-                    | Ast.ValueType.Pair (typ1, typ2) -> buildPair(typId, typ1, typ2)
-                    | Ast.ValueType.Triplet (typ1, typ2, typ3) -> buildTriple(typId, typ1, typ2, typ3)
-                    | Ast.ValueType.Composite fields ->
-                        let ptyp = newWrapper(name, typId.Parents |> List.tryHead)
-                        let modul = newModule(name)
-                        let parents = name :: typId.Parents
-                        // Add types of complex fields as nested types
-                        for field in fields do
-                            let fieldName = field.Key
-                            let fieldKind, _, _ = field.Value
-                            let subpTyp, subModule = getProvidedType { Name = fieldName; Kind = fieldKind; Parents = parents }
-                            addComplexNestedType(modul, (subpTyp, subModule), fieldKind)
-                        // Getters
-                        ptyp.Members.AddRange(getters parents fields)
-                        // Setters
-                        ptyp.Members.AddRange(setters parents (fields, ptyp))
-                        // Create as MCU
-                        ptyp.Members.AddRange(asMcu (name, typId.Kind))
-                        // Parse
-                        ptyp.AddMember(staticParser (typId.Kind, name, ptyp))
-                        // Dump to text
-                        let meth = newMethod("AsString", Kind "string", [], MyAst.line $"\"{name}\" + (Ast.dump this.Wrapped)")
-                        ptyp.AddMember(meth)
-                        // Result
-                        ptyp, Some modul
-                    | Ast.ValueType.Mapping itemTyp ->
-                        let subName = sprintf "%s_ValueType" name
-                        let ptyp1Id = { Name = subName; Kind = itemTyp; Parents = name :: typId.Parents }
-                        let ptyp1, module1 = getProvidedType ptyp1Id
-                        let ptyp = newWrapper(name, typId.Parents |> List.tryHead)
-                        let modul = newModule(name)
-                        addComplexNestedType(modul, (ptyp1, module1), itemTyp)
-                        // Constructor from map
-                        addNamedConstructor("FromMap", ptyp, [("map", Kind $"Map<int, {ptyp1.Name}>")],
-                            MyAst.node 0 [
-                                MyAst.line "map"
-                                "|> Map.map (fun _ v -> v.Wrapped)" |> MyAst.line
-                                "|> Map.toList" |> MyAst.line
-                                "|> Ast.Value.Mapping" |> MyAst.line
-                            ])
-                        // Value getter
-                        let propTyp = Kind $"Map<int, {ptyp1.Name}>"
-                        let body =
-                            let values =
-                                MyAst.line "Map.ofList(this.Wrapped.GetMapping())"
-                                |> MyAst.typed<Map<int, Ast.Value>>
-                            let wrap = wrap (ptyp1Id, ptyp1)
-                            MyAst.MapMap wrap values
-                        ptyp.AddMember(newProperty("Value", propTyp, body))
-                        // Set item in the map
-                        let body =
-                            "this.Wrapped.SetItem(key, value.Wrapped)"
-                            |> MyAst.line
-                            |> MyAst.typed<Ast.Value>
-                            |> build ptyp
-                        ptyp.AddMember(newMethod("SetItem", ptyp.AsKind(), [("key", Kind "int"); ("value", ptyp1.AsModuleKind())], body))
-                        // Remove item from the map
-                        let body =
-                            "this.Wrapped.RemoveItem(key)"
-                            |> MyAst.line
-                            |> MyAst.typed<Ast.Value>
-                            |> build ptyp
-                        ptyp.AddMember(newMethod("RemoveItem", ptyp.AsKind(), ["key", Kind "int"], body))
-                        // Clear map
-                        let body =
-                            "Ast.Value.Mapping []"
-                            |> MyAst.line
-                            |> MyAst.typed<Ast.Value>
-                            |> build ptyp
-                        ptyp.AddMember(newMethod("Clear", ptyp.AsKind(), [], body))
-                        // Result
-                        ptyp, Some modul
-                    | Ast.ValueType.List itemTyp ->
-                        let subName = sprintf "%s_ValueType" name
-                        let ptyp1Id = { Name = subName; Kind = itemTyp; Parents = name :: typId.Parents }
-                        let ptyp1, module1 = getProvidedType ptyp1Id
-                        let ptyp = newWrapper(name, typId.Parents |> List.tryHead)
-                        let modul = newModule(name)
-                        addComplexNestedType(modul, (ptyp1, module1), itemTyp)
-                        // Value getter
-                        let propTyp = ptyp1.AsModuleKind().Seq
-                        let body =
-                            "this.Wrapped.GetList()"
-                            |> MyAst.line
-                            |> MyAst.typed<Ast.Value seq>
-                            |> MyAst.MapItems (wrap (ptyp1Id, ptyp1))
-                        ptyp.AddMember(newProperty("Value", propTyp, body))
-                        // constructor with value
-                        let body =
-                            "items |> Seq.map (fun item -> item.Wrapped) |> List.ofSeq |> Ast.Value.List"
-                            |> MyAst.line
-                        addNamedConstructor(
-                            "FromList",
-                            ptyp,
-                            ["items", propTyp],
-                            body
-                        )
-                        // Result
-                        ptyp, Some modul
-                // Add a default constructor and the value type property, unless it's a ground type (it's already got those)
-                if not (Ast.isGroundType typId.Kind) then
-                    let kind =
-                        typId.Kind.ToExpr()
-                        |> MyAst.untyped
-                        |> MyAst.call (MyAst.line "Ast.defaultValue")
-                    addNamedConstructor("Default", ptyp, [], kind)
-                    addAstValueTypeProperty(ptyp, typId.Kind)
-                ptyp, modul
-            finally
-                logInfo <| sprintf "Done building provided type for %s" typId.Name
+            let name = typId.Name
+            let ptyp, modul =
+                match typId.Kind with
+                | Ast.ValueType.Boolean -> ptypBoolean, None
+                | Ast.ValueType.Float -> ptypFloat, None
+                | Ast.ValueType.FloatPair -> ptypFloatPair, None
+                | Ast.ValueType.Integer -> ptypInteger, None
+                | Ast.ValueType.Mask -> ptypMask, None
+                | Ast.ValueType.String -> ptypString, None
+                | Ast.ValueType.IntVector -> ptypIntVector, None
+                | Ast.ValueType.Date -> ptypDate, None
+                | Ast.ValueType.Pair (typ1, typ2) -> buildPair(typId, typ1, typ2)
+                | Ast.ValueType.Triplet (typ1, typ2, typ3) -> buildTriple(typId, typ1, typ2, typ3)
+                | Ast.ValueType.Composite fields ->
+                    let ptyp = newWrapper(name, typId.Parents |> List.tryHead)
+                    let modul = newModule(name)
+                    let parents = name :: typId.Parents
+                    // Add types of complex fields as nested types
+                    for field in fields do
+                        let fieldName = field.Key
+                        let fieldKind, _, _ = field.Value
+                        let subpTyp, subModule = getProvidedType { Name = fieldName; Kind = fieldKind; Parents = parents }
+                        addComplexNestedType(modul, (subpTyp, subModule), fieldKind)
+                    // Getters
+                    ptyp.Members.AddRange(getters parents fields)
+                    // Setters
+                    ptyp.Members.AddRange(setters parents (fields, ptyp))
+                    // Create as MCU
+                    ptyp.Members.AddRange(asMcu (name, typId.Kind))
+                    // Parse
+                    ptyp.AddMember(staticParser (typId.Kind, name, ptyp))
+                    // Dump to text
+                    let meth = newMethod("AsString", Kind "string", [], MyAst.line $"\"{name}\" + (Ast.dump this.Wrapped)")
+                    ptyp.AddMember(meth)
+                    // Result
+                    ptyp, Some modul
+                | Ast.ValueType.Mapping itemTyp ->
+                    let subName = sprintf "%s_ValueType" name
+                    let ptyp1Id = { Name = subName; Kind = itemTyp; Parents = name :: typId.Parents }
+                    let ptyp1, module1 = getProvidedType ptyp1Id
+                    let ptyp = newWrapper(name, typId.Parents |> List.tryHead)
+                    let modul = newModule(name)
+                    addComplexNestedType(modul, (ptyp1, module1), itemTyp)
+                    // Constructor from map
+                    addNamedConstructor("FromMap", ptyp, [("map", Kind $"Map<int, {ptyp1.Name}>")],
+                        MyAst.node 0 [
+                            MyAst.line "map"
+                            "|> Map.map (fun _ v -> v.Wrapped)" |> MyAst.line
+                            "|> Map.toList" |> MyAst.line
+                            "|> Ast.Value.Mapping" |> MyAst.line
+                        ])
+                    // Value getter
+                    let propTyp = Kind $"Map<int, {ptyp1.Name}>"
+                    let body =
+                        let values =
+                            MyAst.line "Map.ofList(this.Wrapped.GetMapping())"
+                            |> MyAst.typed<Map<int, Ast.Value>>
+                        let wrap = wrap (ptyp1Id, ptyp1)
+                        MyAst.MapMap wrap values
+                    ptyp.AddMember(newProperty("Value", propTyp, body))
+                    // Set item in the map
+                    let body =
+                        "this.Wrapped.SetItem(key, value.Wrapped)"
+                        |> MyAst.line
+                        |> MyAst.typed<Ast.Value>
+                        |> build ptyp
+                    ptyp.AddMember(newMethod("SetItem", ptyp.AsKind(), [("key", Kind "int"); ("value", ptyp1.AsModuleKind())], body))
+                    // Remove item from the map
+                    let body =
+                        "this.Wrapped.RemoveItem(key)"
+                        |> MyAst.line
+                        |> MyAst.typed<Ast.Value>
+                        |> build ptyp
+                    ptyp.AddMember(newMethod("RemoveItem", ptyp.AsKind(), ["key", Kind "int"], body))
+                    // Clear map
+                    let body =
+                        "Ast.Value.Mapping []"
+                        |> MyAst.line
+                        |> MyAst.typed<Ast.Value>
+                        |> build ptyp
+                    ptyp.AddMember(newMethod("Clear", ptyp.AsKind(), [], body))
+                    // Result
+                    ptyp, Some modul
+                | Ast.ValueType.List itemTyp ->
+                    let subName = sprintf "%s_ValueType" name
+                    let ptyp1Id = { Name = subName; Kind = itemTyp; Parents = name :: typId.Parents }
+                    let ptyp1, module1 = getProvidedType ptyp1Id
+                    let ptyp = newWrapper(name, typId.Parents |> List.tryHead)
+                    let modul = newModule(name)
+                    addComplexNestedType(modul, (ptyp1, module1), itemTyp)
+                    // Value getter
+                    let propTyp = ptyp1.AsModuleKind().Seq
+                    let body =
+                        "this.Wrapped.GetList()"
+                        |> MyAst.line
+                        |> MyAst.typed<Ast.Value seq>
+                        |> MyAst.MapItems (wrap (ptyp1Id, ptyp1))
+                    ptyp.AddMember(newProperty("Value", propTyp, body))
+                    // constructor with value
+                    let body =
+                        "items |> Seq.map (fun item -> item.Wrapped) |> List.ofSeq |> Ast.Value.List"
+                        |> MyAst.line
+                    addNamedConstructor(
+                        "FromList",
+                        ptyp,
+                        ["items", propTyp],
+                        body
+                    )
+                    // Result
+                    ptyp, Some modul
+            // Add a default constructor and the value type property, unless it's a ground type (it's already got those)
+            if not (Ast.isGroundType typId.Kind) then
+                let kind =
+                    typId.Kind.ToExpr()
+                    |> MyAst.untyped
+                    |> MyAst.call (MyAst.line "Ast.defaultValue")
+                addNamedConstructor("Default", ptyp, [], kind)
+                addAstValueTypeProperty(ptyp, typId.Kind)
+            ptyp, modul
 
         and buildPair (typId : TypeIdentification, typ1 : Ast.ValueType, typ2 : Ast.ValueType) =
             let ptyp1, m1 =
@@ -559,17 +553,13 @@ module internal Internal =
         and getProvidedType typId : ClassDefinition * ModuleDefinition option=
             cached cache buildProvidedType typId
 
-        logInfo "Done inferring all MCU value types"
-
         getProvidedType, cache
 
     /// <summary>
     /// Build the provided method that builds a list of objects implementing McuBase and its subtypes.
     /// </summary>
-    /// <param name="logInfo">Logging function</param>
     /// <param name="namedValueTypes">List of ValueTypes with their name and their provided type definition.</param>
-    let buildAsMcuList logInfo (namedValueTypes : (string * Ast.ValueType * ClassDefinition) list) =
-        logInfo "Started building the MCU list builder method"
+    let buildAsMcuList (namedValueTypes : (string * Ast.ValueType * ClassDefinition) list) =
         let valueTypeOfName =
             namedValueTypes
             |> Seq.map (fun (name, vt, _) -> name, vt)
@@ -597,18 +587,14 @@ module internal Internal =
 
         let method = newMethod("CreateMcuList", Kind "Mcu.McuBase list", [], body)
 
-        logInfo "Done building the MCU list builder method"
-
         method
 
     /// <summary>
     /// Build the provided type definition of the type that offers parsing of mission files.
     /// </summary>
-    /// <param name="logInfo">Logging function.</param>
     /// <param name="namedValueTypes">ValueTypes with their name and provided type definition.</param>
     /// <param name="topComplexTypes">Complex types that aren't nested in other types.</param>
-    let buildGroupParserType logInfo (namedValueTypes : (string * Ast.ValueType * ClassDefinition) list) (topComplexTypes : (string * Ast.ValueType * ClassDefinition) list) =
-        logInfo "Started building the group parser type"
+    let buildGroupParserType (namedValueTypes : (string * Ast.ValueType * ClassDefinition) list) (topComplexTypes : (string * Ast.ValueType * ClassDefinition) list) =
         let dataListType = Kind "Ast.Data list"
         let body =
             MyAst.node 0 [
@@ -679,24 +665,15 @@ module internal Internal =
                     ]
                 newProperty(sprintf "ListOf%s" name, Kind $"{ptyp.Name} seq", body))
         // Get the flattened list of objects as instances of McuBase and its subtypes, when appropriate
-        parser.AddMember(buildAsMcuList logInfo namedValueTypes)
-        // Logging
-        logInfo "Done building the group parser type"
+        parser.AddMember(buildAsMcuList namedValueTypes)
         // Return result
         parser
 
 /// Entry point of the type provider.
-let generateCode(enableLogging : bool, nsName : string, sample : string) =
-
-    let logInfo, closeLog =
-        if enableLogging then
-            let logger = Logging.initLogging() |> Result.bind Logging.openLogFile
-            Logging.log logger, fun() -> Logging.closeLog logger
-        else
-            (fun _ -> ()), (fun () -> ())
+let generateCode(nsName : string, sample : string) =
 
     // The types corresponding to the ValueTypes extracted from the sample file
-    let getProvidedType, cache = Internal.mkProvidedTypeBuilder logInfo
+    let getProvidedType, cache = Internal.mkProvidedTypeBuilder()
     let types, _ = AutoSchema.getTopTypes(Parsing.Stream.FromFile(sample))
     // Add top types
     let topTypeDefs =
@@ -738,7 +715,7 @@ let generateCode(enableLogging : bool, nsName : string, sample : string) =
         let topComplexTypes =
             topComplexTypes
             |> List.map (fun (name, kind, v) -> (name, kind, fst v))
-        Internal.buildGroupParserType logInfo namedTypes topComplexTypes
+        Internal.buildGroupParserType namedTypes topComplexTypes
     seq {
         yield $"""
 namespace {nsName}

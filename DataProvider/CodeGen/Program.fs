@@ -66,7 +66,7 @@ and generate data types.
             eprintfn "Cannot open '%s' for reading" settings.Input
             1
         else
-        let sourceCode = generateCode(false, settings.GeneratedNamespace, settings.Input)
+        let sourceCode = generateCode(settings.GeneratedNamespace, settings.Input)
         if String.IsNullOrWhiteSpace(settings.Output) then
             printfn "%s" sourceCode
             0
