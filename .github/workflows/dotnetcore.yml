@@ -24,13 +24,17 @@ jobs:
         dotnet build -c release
         dotnet test -c release
       shell: bash
-    - name: Build NuGet package with paket
+    - name: Build NuGet packages
       run: |
-        cd DataProvider
-        dotnet paket pack nuget
+        dotnet pack -c release
       shell: bash      
-    - name: Create artifact
-      uses: actions/upload-artifact@v1
+    - name: Create CodeGen artifact
+      uses: actions/upload-artifact@v2
       with:
-        name: nuget-package
-        path: DataProvider/nuget/
+        name: codegen-nuget-package
+        path: DataProvider/CodeGen/bin/Release/*.nupkg
+    - name: Create McuLibrary artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: mculib-nuget-package
+        path: McuLibrary/bin/Release/*.nupkg

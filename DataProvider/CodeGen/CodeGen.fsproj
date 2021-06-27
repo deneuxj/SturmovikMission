@@ -4,6 +4,14 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>net5.0</TargetFramework>
     <WarnOn>3390;$(WarnOn)</WarnOn>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+    <Authors>Johann Deneux</Authors>
+    <Product>SturmovikMission.CodeGen</Product>
+    <PackageId>SturmovikMission.CodeGen</PackageId>
+    <Description>Generate types from mission files from the IL-2 Sturmovik: Great Battles game series</Description>
+    <Copyright>2021 Johann Deneux</Copyright>
+    <PackageLicenseExpression>GPL-3.0-or-later</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/deneuxj/SturmovikMission</PackageProjectUrl>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="MiniAst.fs" />
