@@ -7,7 +7,7 @@
   </PropertyGroup>
   <ItemGroup>
     <None Include="app.config" />
-    <Compile Include="..\..\CodeGen\bin\Debug\net5.0\T.fs" Link="T.fs" />
+    <Compile Include="T.fs" />
     <Compile Include="DataProvider.Tests.fs" />
     <Compile Include="McuLibrary.Tests.fs" />
     <None Include="paket.references" />
@@ -20,5 +20,12 @@
   <ItemGroup>
     <ProjectReference Include="..\..\..\McuLibrary\McuLibrary.fsproj" />
   </ItemGroup>
+  <Target Name="CodeGenSturmovik" BeforeTargets="BeforeBuild" Inputs="..\..\..\data\Sample.Mission" Outputs="T.fs">
+    <Message Text="Running CodeGenSturmovik" Importance="normal" />
+    <Exec Command="..\..\CodeGen\bin\$(Configuration)\net5.0\CodeGen.exe -i ..\..\..\data\Sample.Mission -o T.fs -n T" />
+  </Target>
+  <Target Name="CleanGenCodeSturmovik" AfterTargets="Clean">
+    <Delete Files="T.fs" />
+  </Target>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>
