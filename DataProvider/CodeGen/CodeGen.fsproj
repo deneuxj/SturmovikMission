@@ -12,6 +12,9 @@
     <Copyright>2021 Johann Deneux</Copyright>
     <PackageLicenseExpression>GPL-3.0-or-later</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/deneuxj/SturmovikMission</PackageProjectUrl>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>codegen-il2</ToolCommandName>
+    <Version>1.0.0.1</Version>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="MiniAst.fs" />
