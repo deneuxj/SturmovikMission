@@ -14,9 +14,15 @@
     <PackageProjectUrl>https://github.com/deneuxj/SturmovikMission</PackageProjectUrl>
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>codegen-il2</ToolCommandName>
-    <Version>1.0.0.1</Version>
+    <Version>1.0.1.2</Version>
   </PropertyGroup>
   <ItemGroup>
+    <None Include="..\..\data\Sample.eng" Link="Sample.eng">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\..\data\Sample.Mission" Link="Sample.Mission">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <Compile Include="MiniAst.fs" />
     <Compile Include="CodeGenerator.fs" />
     <Compile Include="Program.fs" />

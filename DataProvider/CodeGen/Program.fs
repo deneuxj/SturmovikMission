@@ -12,7 +12,7 @@ type Settings = {
 with
     static member Default =
         {
-            Input = ""
+            Input = System.IO.Path.Join(System.IO.Path.GetDirectoryName(typeof<Settings>.Assembly.Location), "Sample.Mission")
             Output = ""
             GeneratedNamespace = "SturmovikMission"
             PrintUsage = false
