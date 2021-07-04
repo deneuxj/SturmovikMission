@@ -19,10 +19,7 @@
 
 module SturmovikMission.DataProvider.Test
 
-open SturmovikMissionTypes
 open NUnit.Framework
-
-type T = Provider< @"..\..\..\data\Sample.Mission">
 
 [<Test>]
 let ``T.Vehicle has repair and refuel fields``() =
